@@ -14,11 +14,22 @@ static void rkadm5_config_free(RUBY_KADM5_CONFIG* ptr){
   free(ptr);
 }
 
+const rb_data_type_t kadm5_config_type = {
+  .wrap_struct_name = "kadm5_config",
+  .function = {
+    .dfree = (void (*)(void*))rkadm5_config_free,
+    .dsize = NULL,
+    .dmark = NULL,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY
+};
+
 // Allocation function for the Kerberos::Krb5 class.
 static VALUE rkadm5_config_allocate(VALUE klass){
   RUBY_KADM5_CONFIG* ptr = malloc(sizeof(RUBY_KADM5_CONFIG));
   memset(ptr, 0, sizeof(RUBY_KADM5_CONFIG));
-  return Data_Wrap_Struct(klass, 0, rkadm5_config_free, ptr);
+  return TypedData_Wrap_Struct(klass, &kadm5_config_type, ptr);
 }
 
 /*
@@ -33,7 +44,7 @@ static VALUE rkadm5_config_initialize(VALUE self){
   RUBY_KADM5_CONFIG* ptr;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KADM5_CONFIG, ptr);
+  TypedData_Get_Struct(self, RUBY_KADM5_CONFIG, &kadm5_config_type, ptr);
 
   kerror = krb5_init_context(&ptr->ctx);
 

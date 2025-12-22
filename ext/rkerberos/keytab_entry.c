@@ -10,11 +10,22 @@ static void rkrb5_kt_entry_free(RUBY_KRB5_KT_ENTRY* ptr){
   free(ptr);
 }
 
+const rb_data_type_t krb5_kt_entry_type = {
+  .wrap_struct_name = "krb5_kt_entry",
+  .function = {
+    .dfree = (void (*)(void*))rkrb5_kt_entry_free,
+    .dsize = NULL,
+    .dmark = NULL,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY
+};
+
 // Allocation function for the Kerberos::Krb5::Keytab::Entry class.
 static VALUE rkrb5_kt_entry_allocate(VALUE klass){
   RUBY_KRB5_KT_ENTRY* ptr = malloc(sizeof(RUBY_KRB5_KT_ENTRY));
   memset(ptr, 0, sizeof(RUBY_KRB5_KT_ENTRY));
-  return Data_Wrap_Struct(klass, 0, rkrb5_kt_entry_free, ptr);
+  return TypedData_Wrap_Struct(klass, &krb5_kt_entry_type, ptr);
 }
 
 /*

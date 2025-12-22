@@ -19,11 +19,22 @@ static void rkrb5_ccache_free(RUBY_KRB5_CCACHE* ptr){
   free(ptr);
 }
 
+const rb_data_type_t krb5_ccache_type = {
+  .wrap_struct_name = "krb5_ccache",
+  .function = {
+    .dfree = (void (*)(void*))rkrb5_ccache_free,
+    .dsize = NULL,
+    .dmark = NULL,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY
+};
+
 // Allocation function for the Kerberos::Krb5::CCache class.
 static VALUE rkrb5_ccache_allocate(VALUE klass){
   RUBY_KRB5_CCACHE* ptr = malloc(sizeof(RUBY_KRB5_CCACHE));
   memset(ptr, 0, sizeof(RUBY_KRB5_CCACHE));
-  return Data_Wrap_Struct(klass, 0, rkrb5_ccache_free, ptr);
+  return TypedData_Wrap_Struct(klass, &krb5_ccache_type, ptr);
 }
 
 /*
@@ -46,7 +57,7 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
   krb5_error_code kerror;
   VALUE v_principal, v_name;
 
-  Data_Get_Struct(self, RUBY_KRB5_CCACHE, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_CCACHE, &krb5_ccache_type, ptr);
 
   rb_scan_args(argc, argv, "02", &v_principal, &v_name);
 
@@ -108,7 +119,7 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
 static VALUE rkrb5_ccache_close(VALUE self){
   RUBY_KRB5_CCACHE* ptr;
 
-  Data_Get_Struct(self, RUBY_KRB5_CCACHE, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_CCACHE, &krb5_ccache_type, ptr);
 
   if(!ptr->ctx)
     return self;
@@ -141,7 +152,7 @@ static VALUE rkrb5_ccache_close(VALUE self){
 static VALUE rkrb5_ccache_default_name(VALUE self){
   RUBY_KRB5_CCACHE* ptr;
 
-  Data_Get_Struct(self, RUBY_KRB5_CCACHE, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_CCACHE, &krb5_ccache_type, ptr);
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");
@@ -160,7 +171,7 @@ static VALUE rkrb5_ccache_primary_principal(VALUE self){
   krb5_error_code kerror;
   char* name;
 
-  Data_Get_Struct(self, RUBY_KRB5_CCACHE, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_CCACHE, &krb5_ccache_type, ptr);
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");
@@ -193,7 +204,7 @@ static VALUE rkrb5_ccache_destroy(VALUE self){
   krb5_error_code kerror;
   VALUE v_bool = Qtrue;
 
-  Data_Get_Struct(self, RUBY_KRB5_CCACHE, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_CCACHE, &krb5_ccache_type, ptr);
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");

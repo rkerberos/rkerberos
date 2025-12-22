@@ -16,11 +16,22 @@ static void rkrb5_princ_free(RUBY_KRB5_PRINC* ptr){
   free(ptr);
 }
 
+const rb_data_type_t krb5_princ_type = {
+  .wrap_struct_name = "krb5_princ",
+  .function = {
+    .dfree = (void (*)(void*))rkrb5_princ_free,
+    .dsize = NULL,
+    .dmark = NULL,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY
+};
+
 // Allocation function for the Kerberos::Krb5::Keytab class.
 static VALUE rkrb5_princ_allocate(VALUE klass){
   RUBY_KRB5_PRINC* ptr = malloc(sizeof(RUBY_KRB5_PRINC));
   memset(ptr, 0, sizeof(RUBY_KRB5_PRINC));
-  return Data_Wrap_Struct(klass, 0, rkrb5_princ_free, ptr);
+  return TypedData_Wrap_Struct(klass, &krb5_princ_type, ptr);
 }
 
 /*
@@ -42,7 +53,7 @@ static VALUE rkrb5_princ_initialize(VALUE self, VALUE v_name){
   RUBY_KRB5_PRINC* ptr;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &krb5_princ_type, ptr);
 
   kerror = krb5_init_context(&ptr->ctx);
 
@@ -93,7 +104,7 @@ static VALUE rkrb5_princ_initialize(VALUE self, VALUE v_name){
  */
 static VALUE rkrb5_princ_get_realm(VALUE self){
   RUBY_KRB5_PRINC* ptr;
-  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &krb5_princ_type, ptr);
 
   return rb_str_new2(krb5_princ_realm(ptr->ctx, ptr->principal)->data);
 }
@@ -107,7 +118,7 @@ static VALUE rkrb5_princ_get_realm(VALUE self){
 static VALUE rkrb5_princ_set_realm(VALUE self, VALUE v_realm){
   RUBY_KRB5_PRINC* ptr;
 
-  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &krb5_princ_type, ptr);
 
   Check_Type(v_realm, T_STRING);
 
@@ -127,8 +138,8 @@ static VALUE rkrb5_princ_equal(VALUE self, VALUE v_other){
   RUBY_KRB5_PRINC* ptr2;
   VALUE v_bool = Qfalse;
 
-  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr1);
-  Data_Get_Struct(v_other, RUBY_KRB5_PRINC, ptr2);
+  TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &krb5_princ_type, ptr1);
+  TypedData_Get_Struct(v_other, RUBY_KRB5_PRINC, &krb5_princ_type, ptr2);
 
   if(krb5_principal_compare(ptr1->ctx, ptr1->principal, ptr2->principal))
     v_bool = Qtrue;

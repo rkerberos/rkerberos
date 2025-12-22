@@ -13,11 +13,22 @@ static void rkadm5_policy_free(RUBY_KADM5_POLICY* ptr){
   free(ptr);
 }
 
+const rb_data_type_t kadm5_policy_type = {
+  .wrap_struct_name = "kadm5_policy",
+  .function = {
+    .dfree = (void (*)(void*))rkadm5_policy_free,
+    .dsize = NULL,
+    .dmark = NULL,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY
+};
+
 // Allocation function for the Kerberos::Kadm5::Policy class.
 static VALUE rkadm5_policy_allocate(VALUE klass){
   RUBY_KADM5_POLICY* ptr = malloc(sizeof(RUBY_KADM5_POLICY));
   memset(ptr, 0, sizeof(RUBY_KADM5_POLICY));
-  return Data_Wrap_Struct(klass, 0, rkadm5_policy_free, ptr);
+  return TypedData_Wrap_Struct(klass, &kadm5_policy_type, ptr);
 }
 
 /*
@@ -45,7 +56,7 @@ static VALUE rkadm5_policy_init(VALUE self, VALUE v_options){
   VALUE v_name, v_minlife, v_maxlife, v_minlength;
   VALUE v_minclasses, v_historynum;
 
-  Data_Get_Struct(self, RUBY_KADM5_POLICY, ptr);
+  TypedData_Get_Struct(self, RUBY_KADM5_POLICY, &kadm5_policy_type, ptr);
 
   Check_Type(v_options, T_HASH);
 

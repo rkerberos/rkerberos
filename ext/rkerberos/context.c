@@ -13,11 +13,22 @@ static void rkrb5_context_free(RUBY_KRB5_CONTEXT* ptr){
   free(ptr);
 }
 
+const rb_data_type_t krb5_context_type = {
+  .wrap_struct_name = "krb5_context",
+  .function = {
+    .dfree = (void (*)(void*))rkrb5_context_free,
+    .dsize = NULL,
+    .dmark = NULL,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY
+};
+
 // Allocation function for the Kerberos::Krb5::Context class.
 static VALUE rkrb5_context_allocate(VALUE klass){
   RUBY_KRB5_CONTEXT* ptr = malloc(sizeof(RUBY_KRB5_CONTEXT));
   memset(ptr, 0, sizeof(RUBY_KRB5_CONTEXT));
-  return Data_Wrap_Struct(klass, 0, rkrb5_context_free, ptr);
+  return TypedData_Wrap_Struct(klass, &krb5_context_type, ptr);
 }
 
 /*
@@ -29,7 +40,7 @@ static VALUE rkrb5_context_allocate(VALUE klass){
 static VALUE rkrb5_context_close(VALUE self){
   RUBY_KRB5_CONTEXT* ptr;
 
-  Data_Get_Struct(self, RUBY_KRB5_CONTEXT, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_CONTEXT, &krb5_context_type, ptr);
 
   if(ptr->ctx)
     krb5_free_context(ptr->ctx);
@@ -52,7 +63,7 @@ static VALUE rkrb5_context_initialize(VALUE self){
   RUBY_KRB5_CONTEXT* ptr;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5_CONTEXT, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5_CONTEXT, &krb5_context_type, ptr);
 
   kerror = krb5_init_context(&ptr->ctx);
 

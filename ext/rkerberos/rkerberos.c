@@ -39,11 +39,22 @@ static void rkrb5_free(RUBY_KRB5* ptr){
   free(ptr);
 }
 
+const rb_data_type_t krb5_type = {
+  .wrap_struct_name = "krb5",
+  .function = {
+    .dfree = (void (*)(void*))rkrb5_free,
+    .dsize = NULL,
+    .dmark = NULL,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY
+};
+
 // Allocation function for the Kerberos::Krb5 class.
 static VALUE rkrb5_allocate(VALUE klass){
   RUBY_KRB5* ptr = malloc(sizeof(RUBY_KRB5));
   memset(ptr, 0, sizeof(RUBY_KRB5));
-  return Data_Wrap_Struct(klass, 0, rkrb5_free, ptr);
+  return TypedData_Wrap_Struct(klass, &krb5_type, ptr);
 }
 
 /*
@@ -57,7 +68,7 @@ static VALUE rkrb5_initialize(VALUE self){
   RUBY_KRB5* ptr;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   kerror = krb5_init_context(&ptr->ctx);
 
@@ -83,7 +94,7 @@ static VALUE rkrb5_get_default_realm(VALUE self){
   char* realm;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   kerror = krb5_get_default_realm(ptr->ctx, &realm);
 
@@ -106,7 +117,7 @@ static VALUE rkrb5_set_default_realm(int argc, VALUE* argv, VALUE self){
   char* realm;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   rb_scan_args(argc, argv, "01", &v_realm);
 
@@ -150,7 +161,7 @@ static VALUE rkrb5_get_init_creds_keytab(int argc, VALUE* argv, VALUE self){
   krb5_get_init_creds_opt* opt;
   krb5_creds cred;
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");
@@ -225,7 +236,7 @@ static VALUE rkrb5_get_init_creds_keytab(int argc, VALUE* argv, VALUE self){
   // Set the credential cache from the supplied Kerberos::Krb5::CredentialsCache
   if(!NIL_P(v_ccache)){
     RUBY_KRB5_CCACHE* ccptr;
-    Data_Get_Struct(v_ccache, RUBY_KRB5_CCACHE, ccptr);
+    TypedData_Get_Struct(v_ccache, RUBY_KRB5_CCACHE, &krb5_ccache_type, ccptr);
 
     kerror = krb5_get_init_creds_opt_set_out_ccache(ptr->ctx, opt, ccptr->ccache);
     if(kerror) {
@@ -286,7 +297,7 @@ static VALUE rkrb5_change_password(VALUE self, VALUE v_old, VALUE v_new){
   old_passwd = StringValueCStr(v_old);
   new_passwd = StringValueCStr(v_new);
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");
@@ -340,7 +351,7 @@ static VALUE rkrb5_get_init_creds_passwd(int argc, VALUE* argv, VALUE self){
   char* service;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");
@@ -393,7 +404,7 @@ static VALUE rkrb5_get_init_creds_passwd(int argc, VALUE* argv, VALUE self){
 static VALUE rkrb5_close(VALUE self){
   RUBY_KRB5* ptr;
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   if(ptr->ctx)
     krb5_free_cred_contents(ptr->ctx, &ptr->creds);
@@ -425,7 +436,7 @@ static VALUE rkrb5_get_default_principal(VALUE self){
   krb5_ccache ccache;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");
@@ -481,7 +492,7 @@ static VALUE rkrb5_get_permitted_enctypes(VALUE self){
   krb5_enctype* ktypes;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5, ptr);
+  TypedData_Get_Struct(self, RUBY_KRB5, &krb5_type, ptr);
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");

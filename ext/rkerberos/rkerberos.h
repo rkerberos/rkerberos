@@ -22,6 +22,17 @@ void Init_ccache();
 // Defined in rkerberos.c
 VALUE rb_hash_aref2(VALUE, const char*);
 
+// TypedData type declarations
+extern const rb_data_type_t krb5_type;
+extern const rb_data_type_t krb5_ccache_type;
+extern const rb_data_type_t krb5_context_type;
+extern const rb_data_type_t krb5_keytab_type;
+extern const rb_data_type_t krb5_kt_entry_type;
+extern const rb_data_type_t krb5_princ_type;
+extern const rb_data_type_t kadm5_type;
+extern const rb_data_type_t kadm5_config_type;
+extern const rb_data_type_t kadm5_policy_type;
+
 // Variable declarations
 extern VALUE mKerberos;
 extern VALUE cKrb5;
