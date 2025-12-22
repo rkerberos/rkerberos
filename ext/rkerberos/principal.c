@@ -42,7 +42,7 @@ static VALUE rkrb5_princ_initialize(VALUE self, VALUE v_name){
   RUBY_KRB5_PRINC* ptr;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr); 
+  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr);
 
   kerror = krb5_init_context(&ptr->ctx);
 
@@ -71,8 +71,8 @@ static VALUE rkrb5_princ_initialize(VALUE self, VALUE v_name){
   rb_iv_set(self, "@last_failed", Qnil);
   rb_iv_set(self, "@last_password_change", Qnil);
   rb_iv_set(self, "@last_success", Qnil);
-  rb_iv_set(self, "@max_life", Qnil); 
-  rb_iv_set(self, "@max_renewable_life", Qnil); 
+  rb_iv_set(self, "@max_life", Qnil);
+  rb_iv_set(self, "@max_renewable_life", Qnil);
   rb_iv_set(self, "@mod_date", Qnil);
   rb_iv_set(self, "@mod_name", Qnil);
   rb_iv_set(self, "@password_expiration", Qnil);
@@ -93,7 +93,7 @@ static VALUE rkrb5_princ_initialize(VALUE self, VALUE v_name){
  */
 static VALUE rkrb5_princ_get_realm(VALUE self){
   RUBY_KRB5_PRINC* ptr;
-  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr); 
+  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr);
 
   return rb_str_new2(krb5_princ_realm(ptr->ctx, ptr->principal)->data);
 }
@@ -107,7 +107,7 @@ static VALUE rkrb5_princ_get_realm(VALUE self){
 static VALUE rkrb5_princ_set_realm(VALUE self, VALUE v_realm){
   RUBY_KRB5_PRINC* ptr;
 
-  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr); 
+  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr);
 
   Check_Type(v_realm, T_STRING);
 
@@ -127,8 +127,8 @@ static VALUE rkrb5_princ_equal(VALUE self, VALUE v_other){
   RUBY_KRB5_PRINC* ptr2;
   VALUE v_bool = Qfalse;
 
-  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr1); 
-  Data_Get_Struct(v_other, RUBY_KRB5_PRINC, ptr2); 
+  Data_Get_Struct(self, RUBY_KRB5_PRINC, ptr1);
+  Data_Get_Struct(v_other, RUBY_KRB5_PRINC, ptr2);
 
   if(krb5_principal_compare(ptr1->ctx, ptr1->principal, ptr2->principal))
     v_bool = Qtrue;
@@ -136,7 +136,7 @@ static VALUE rkrb5_princ_equal(VALUE self, VALUE v_other){
   return v_bool;
 }
 
-/* 
+/*
  * call-seq:
  *   principal.inspect
  *

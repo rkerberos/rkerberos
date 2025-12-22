@@ -31,7 +31,7 @@ static VALUE rkadm5_policy_allocate(VALUE klass){
  *
  * The possible options are:
  *
- * * name        - the name of the policy (mandatory) 
+ * * name        - the name of the policy (mandatory)
  * * min_life    - minimum lifetime of a password
  * * max_life    - maximum lifetime of a password
  * * min_length  - minimum length of a password
@@ -82,7 +82,7 @@ static VALUE rkadm5_policy_init(VALUE self, VALUE v_options){
   else{
     rb_iv_set(self, "@max_life", Qnil);
   }
-  
+
   if(!NIL_P(v_minlength)){
     ptr->policy.pw_min_length = NUM2LONG(v_minlength);
     rb_iv_set(self, "@min_length", v_minlength);
@@ -147,7 +147,7 @@ static VALUE rkadm5_policy_inspect(VALUE self){
   rb_str_buf_append(v_str, rb_inspect(rb_iv_get(self, "@history_num")));
 
   rb_str_buf_cat2(v_str, ">");
-  
+
   return v_str;
 }
 

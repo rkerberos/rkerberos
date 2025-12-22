@@ -217,7 +217,7 @@ static VALUE rkadm5_set_password(VALUE self, VALUE v_user, VALUE v_pass){
   if(!ptr->ctx)
     rb_raise(cKadm5Exception, "no context has been established");
 
-  kerror = krb5_parse_name(ptr->ctx, user, &ptr->princ); 
+  kerror = krb5_parse_name(ptr->ctx, user, &ptr->princ);
 
   if(kerror)
     rb_raise(cKadm5Exception, "krb5_parse_name: %s", error_message(kerror));
@@ -276,7 +276,7 @@ static VALUE rkadm5_create_principal(int argc, VALUE* argv, VALUE self){
   if(kerror)
     rb_raise(cKadm5Exception, "krb5_parse_name: %s", error_message(kerror));
 
-  kerror = kadm5_create_principal(ptr->handle, &princ, mask, pass); 
+  kerror = kadm5_create_principal(ptr->handle, &princ, mask, pass);
 
   if(kerror)
     rb_raise(cKadm5Exception, "kadm5_create_principal: %s", error_message(kerror));
@@ -557,7 +557,7 @@ static VALUE rkadm5_create_policy(VALUE self, VALUE v_policy){
     mask |= KADM5_PW_MIN_CLASSES;
     ent.pw_min_classes = NUM2LONG(v_min_classes);
   }
-    
+
   if(RTEST(v_min_length)){
     mask |= KADM5_PW_MIN_LENGTH;
     ent.pw_min_length = NUM2LONG(v_min_length);
@@ -638,7 +638,7 @@ static VALUE rkadm5_get_policy(VALUE self, VALUE v_name){
 
   policy_name = StringValueCStr(v_name);
 
-  kerror = kadm5_get_policy(ptr->handle, policy_name, &ent); 
+  kerror = kadm5_get_policy(ptr->handle, policy_name, &ent);
 
   if(kerror){
     rb_raise(
@@ -690,7 +690,7 @@ static VALUE rkadm5_find_policy(VALUE self, VALUE v_name){
 
   policy_name = StringValueCStr(v_name);
 
-  kerror = kadm5_get_policy(ptr->handle, policy_name, &ent); 
+  kerror = kadm5_get_policy(ptr->handle, policy_name, &ent);
 
   // Return nil if not found rather than raising an error.
   if(kerror){
@@ -764,7 +764,7 @@ static VALUE rkadm5_modify_policy(VALUE self, VALUE v_policy){
   return self;
 }
 
-/* 
+/*
  * call-seq:
  *   kadm5.get_policies(expr = nil)
  *
@@ -810,7 +810,7 @@ static VALUE rkadm5_get_policies(int argc, VALUE* argv, VALUE self){
   return v_array;
 }
 
-/* 
+/*
  * call-seq:
  *   kadm5.get_principals(expr = nil)
  *
@@ -886,7 +886,7 @@ static VALUE rkadm5_get_privs(int argc, VALUE* argv, VALUE self){
 
   rb_scan_args(argc, argv, "01", &v_strings);
 
-  kerror = kadm5_get_privs(ptr->handle, &privs); 
+  kerror = kadm5_get_privs(ptr->handle, &privs);
 
   if(kerror)
     rb_raise(cKadm5Exception, "kadm5_get_privs: %s (%li)", error_message(kerror), kerror);
@@ -920,7 +920,7 @@ static VALUE rkadm5_get_privs(int argc, VALUE* argv, VALUE self){
     }
     v_return = INT2FIX(result);
   }
-  
+
   return v_return;
 }
 
@@ -951,7 +951,7 @@ static VALUE rkadm5_randkey_principal(VALUE self, VALUE v_user){
   if(kerror)
     rb_raise(cKadm5Exception, "krb5_parse_name: %s", error_message(kerror));
 
-  kerror = kadm5_randkey_principal(ptr->handle, princ, &keys, &n_keys); 
+  kerror = kadm5_randkey_principal(ptr->handle, princ, &keys, &n_keys);
 
   if(kerror)
     rb_raise(cKadm5Exception, "kadm5_randkey_principal: %s (%li)", error_message(kerror), kerror);

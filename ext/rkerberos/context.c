@@ -23,7 +23,7 @@ static VALUE rkrb5_context_allocate(VALUE klass){
 /*
  * call-seq:
  *   context.close
- *   
+ *
  * Closes the context object.
  */
 static VALUE rkrb5_context_close(VALUE self){
@@ -58,7 +58,7 @@ static VALUE rkrb5_context_initialize(VALUE self){
 
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_init_context: %s", error_message(kerror));
-  
+
   return self;
 }
 

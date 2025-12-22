@@ -92,14 +92,14 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
     if(kerror)
       rb_raise(cKrb5Exception, "krb5_cc_initialize: %s", error_message(kerror));
   }
-  
+
   return self;
 }
 
 /*
  * call-seq:
  *   ccache.close
- *   
+ *
  * Closes the ccache object. Once the ccache object is closed no more
  * methods may be called on it, or an exception will be raised.
  *

@@ -36,7 +36,7 @@ static VALUE rkrb5_kt_entry_initialize(VALUE self){
 static VALUE rkrb5_kt_entry_inspect(VALUE self){
   VALUE v_str;
 
-  v_str = rb_str_new2("#<"); 
+  v_str = rb_str_new2("#<");
   rb_str_buf_cat2(v_str, rb_obj_classname(self));
   rb_str_buf_cat2(v_str, " ");
 
@@ -70,7 +70,7 @@ void Init_keytab_entry(){
   rb_define_method(cKrb5KtEntry, "initialize", rkrb5_kt_entry_initialize, 0);
 
   // Instance Methods
-  rb_define_method(cKrb5KtEntry, "inspect", rkrb5_kt_entry_inspect, 0); 
+  rb_define_method(cKrb5KtEntry, "inspect", rkrb5_kt_entry_inspect, 0);
 
   // Accessors
   rb_define_attr(cKrb5KtEntry, "principal", 1, 1);

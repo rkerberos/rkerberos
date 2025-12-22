@@ -33,7 +33,7 @@ static VALUE rkadm5_config_initialize(VALUE self){
   RUBY_KADM5_CONFIG* ptr;
   krb5_error_code kerror;
 
-  Data_Get_Struct(self, RUBY_KADM5_CONFIG, ptr); 
+  Data_Get_Struct(self, RUBY_KADM5_CONFIG, ptr);
 
   kerror = krb5_init_context(&ptr->ctx);
 
@@ -264,7 +264,7 @@ void Init_config(){
   // Allocation function
 
   rb_define_alloc_func(cKadm5Config, rkadm5_config_allocate);
-  
+
   // Initializer
 
   rb_define_method(cKadm5Config, "initialize", rkadm5_config_initialize, 0);
