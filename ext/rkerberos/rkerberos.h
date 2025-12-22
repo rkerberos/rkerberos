@@ -35,6 +35,7 @@ extern VALUE cKadm5;
 extern VALUE cKadm5Config;
 extern VALUE cKadm5Exception;
 extern VALUE cKadm5Policy;
+extern VALUE cKeySalt;
 
 // Kerberos::Krb5
 typedef struct {
