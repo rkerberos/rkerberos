@@ -59,7 +59,7 @@ static VALUE rkadm5_policy_init(VALUE self, VALUE v_options){
 
   Check_Type(v_options, T_HASH);
 
-  if(RTEST(rb_funcall(v_options, rb_intern("empty?"), 0, 0)))
+  if(RTEST(rb_funcall(v_options, rb_intern("empty?"), 0)))
     rb_raise(rb_eArgError, "no policy options provided");
 
   v_name       = rb_hash_aref2(v_options, rb_str_new_cstr("name"));
