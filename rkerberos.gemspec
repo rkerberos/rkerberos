@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.summary    = 'A Ruby interface for the the Kerberos library'
   spec.test_files = Dir['spec/**/*_spec.rb']
   spec.extensions = ['ext/rkerberos/extconf.rb']
-  spec.files      = Dir['**/*'].grep_v(%r{\A(?:\.git|docker(?:/|$)|Dockerfile)})
+  spec.files      = Dir['**/*'].grep_v(%r{\A(?:\.git|docker|Dockerfile)})
 
   spec.extra_rdoc_files = ['README.md', 'CHANGES', 'MANIFEST', 'LICENSE'] + Dir['ext/rkerberos/*.c']
 
