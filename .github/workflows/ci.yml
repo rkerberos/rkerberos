@@ -30,7 +30,9 @@ jobs:
       - name: Build & run docker-compose tests
         # the rkerberos-test service runs the spec suite (CMD = bundle exec rspec)
         run: |
-          docker compose -f docker-compose.yml up --build --abort-on-container-exit --exit-code-from rkerberos-test
+          # rebuild the test container with the desired Ruby version
+          docker compose -f docker-compose.yml build --build-arg RUBY=${{ matrix.ruby }} rkerberos-test
+          docker compose -f docker-compose.yml up --abort-on-container-exit --exit-code-from rkerberos-test
 
       - name: Upload rkerberos-test logs on failure
         if: failure()

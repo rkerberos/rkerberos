@@ -1,5 +1,7 @@
 # Dockerfile for rkerberos Ruby gem testing
-FROM ruby:3.4
+# allow the base Ruby version to be overridden via build argument
+ARG RUBY=3.4
+FROM ruby:${RUBY}
 
 # Install MIT Kerberos, KDC, admin server, and build tools
 RUN apt-get update && \
