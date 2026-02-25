@@ -13,7 +13,10 @@ on:
 
 jobs:
   integration:
-    name: Integration tests (docker-compose)
+    name: Integration tests (docker-compose) – Ruby ${{ matrix.ruby }}
+    strategy:
+      matrix:
+        ruby: [3.2, 3.3, 3.4, 4.0]
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
