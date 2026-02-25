@@ -20,6 +20,8 @@ extern "C" {
 
 // Make the ccache data type visible to other C files
 extern const rb_data_type_t rkrb5_ccache_data_type;
+// Make the keytab data type visible to other C files
+extern const rb_data_type_t rkrb5_keytab_data_type;
 
 #ifdef __cplusplus
 }
