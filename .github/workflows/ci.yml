@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Setup docker and docker-compose
-        if: runner.platform == 'macos'
+        if: runner.os == 'macOS'
         run: |
           brew install docker docker-compose
           mkdir -p ~/.docker/cli-plugins
