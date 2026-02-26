@@ -22,6 +22,14 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Setup docker and docker-compose
+        if: runner.platform == 'macos'
+        run: |
+          brew install docker docker-compose
+          mkdir -p ~/.docker/cli-plugins
+          ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
+          colima start
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
