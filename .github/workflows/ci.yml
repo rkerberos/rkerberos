@@ -17,28 +17,73 @@ jobs:
     strategy:
       matrix:
         ruby: [3.2, 3.3, 3.4, 4.0]
-    runs-on: ubuntu-latest
+        platform: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # macOS setup: Ruby, dependencies, Kerberos and Podman
+      - name: Set up Ruby (macOS only)
+        if: matrix.platform == 'macos-latest'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Install dependencies (macOS only)
+        if: matrix.platform == 'macos-latest'
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Install Kerberos libraries (macOS only)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew update
+          brew install krb5
+
+      - name: Compile native extension (macOS only)
+        if: matrix.platform == 'macos-latest'
+        run: bundle exec rake compile
+
+      - name: Install Podman & compose (macOS only)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew update
+          brew install podman podman-compose
+          podman machine init --quiet || true
+          podman machine start --quiet
+
+      # Docker integration only on Linux
       - name: Set up Docker Buildx
+        if: matrix.platform == 'ubuntu-latest'
         uses: docker/setup-buildx-action@v2
 
-      - name: Build & run docker-compose tests
-        # the rkerberos-test service runs the spec suite (CMD = bundle exec rspec)
+      - name: Build & run container tests (platform-specific)
         run: |
-          # rebuild the test container with the desired Ruby version
-          docker compose -f docker-compose.yml build --build-arg RUBY=${{ matrix.ruby }} rkerberos-test
-          docker compose -f docker-compose.yml up --abort-on-container-exit --exit-code-from rkerberos-test
+          if [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            docker compose -f docker-compose.yml build --build-arg RUBY=${{ matrix.ruby }} rkerberos-test
+            docker compose -f docker-compose.yml up --abort-on-container-exit --exit-code-from rkerberos-test
+          else
+            podman-compose -f docker-compose.yml build --build-arg RUBY=${{ matrix.ruby }} rkerberos-test
+            podman-compose -f docker-compose.yml up --abort-on-container-exit --exit-code-from rkerberos-test
+          fi
 
       - name: Upload rkerberos-test logs on failure
         if: failure()
         run: |
-          docker compose -f docker-compose.yml logs --no-color rkerberos-test || true
+          if [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            docker compose -f docker-compose.yml logs --no-color rkerberos-test || true
+          else
+            podman-compose -f docker-compose.yml logs --no-color rkerberos-test || true
+          fi
 
-      - name: Tear down compose
+      - name: Tear down container
         if: always()
-        run: docker compose -f docker-compose.yml down -v
+        run: |
+          if [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            docker compose -f docker-compose.yml down -v
+          else
+            podman-compose -f docker-compose.yml down -v
+          fi
