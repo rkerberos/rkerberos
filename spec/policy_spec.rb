@@ -3,8 +3,9 @@
 
 require 'rkerberos'
 
-RSpec.describe Kerberos::Kadm5::Policy do
-  subject(:policy) { described_class.new(name: 'test', max_life: 10000) }
+RSpec.describe 'policy', :kadm5 do
+  subject(:klass){ Kerberos::Kadm5::Policy }
+  subject(:policy) { klass.new(name: 'test', max_life: 10000) }
 
   describe 'name' do
     it 'responds to policy' do
@@ -15,10 +16,10 @@ RSpec.describe Kerberos::Kadm5::Policy do
       expect(policy.method(:name)).to eq(policy.method(:policy))
     end
     it 'must be a string' do
-      expect { described_class.new(name: 1) }.to raise_error(TypeError)
+      expect { klass.new(name: 1) }.to raise_error(TypeError)
     end
     it 'must be present' do
-      expect { described_class.new(max_life: 10000) }.to raise_error(ArgumentError)
+      expect { klass.new(max_life: 10000) }.to raise_error(ArgumentError)
     end
   end
 
@@ -28,7 +29,7 @@ RSpec.describe Kerberos::Kadm5::Policy do
       expect { policy.min_life }.not_to raise_error
     end
     it 'must be a number if not nil' do
-      expect { described_class.new(name: 'test', min_life: 'test') }.to raise_error(TypeError)
+      expect { klass.new(name: 'test', min_life: 'test') }.to raise_error(TypeError)
     end
   end
 
@@ -38,7 +39,7 @@ RSpec.describe Kerberos::Kadm5::Policy do
       expect { policy.max_life }.not_to raise_error
     end
     it 'must be a number if not nil' do
-      expect { described_class.new(name: 'test', max_life: 'test') }.to raise_error(TypeError)
+      expect { klass.new(name: 'test', max_life: 'test') }.to raise_error(TypeError)
     end
   end
 

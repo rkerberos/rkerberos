@@ -97,6 +97,9 @@ static VALUE rkrb5_get_default_realm(VALUE self){
 
   kerror = krb5_get_default_realm(ptr->ctx, &realm);
 
+#ifdef HAVE_KADM5_ADMIN_H
+  Init_kadm5();
+#endif
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_get_default_realm: %s", error_message(kerror));
 

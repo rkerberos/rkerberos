@@ -1,8 +1,10 @@
+
+
+#ifdef HAVE_KADM5_ADMIN_H
 #include <rkerberos.h>
 
 VALUE cKadm5Config;
 VALUE cKeySalt;
-
 
 // TypedData functions for RUBY_KADM5_CONFIG
 static void rkadm5_config_typed_free(void *ptr) {
@@ -294,19 +296,15 @@ void Init_config(void){
   cKadm5Config = rb_define_class_under(cKadm5, "Config", rb_cObject);
 
   // Allocation function
-
   rb_define_alloc_func(cKadm5Config, rkadm5_config_allocate);
 
   // Initializer
-
   rb_define_method(cKadm5Config, "initialize", rkadm5_config_initialize, 0);
 
   // Methods
-
   rb_define_method(cKadm5Config, "inspect", rkadm5_config_inspect, 0);
 
   // Accessors
-
   rb_define_attr(cKadm5Config, "acl_file", 1, 0);
   rb_define_attr(cKadm5Config, "admin_server", 1, 0);
   rb_define_attr(cKadm5Config, "dict_file", 1, 0);
@@ -334,3 +332,4 @@ void Init_config(void){
   rb_define_attr(cKeySalt, "enctype", 1, 0);
   rb_define_attr(cKeySalt, "salttype", 1, 0);
 }
+#endif

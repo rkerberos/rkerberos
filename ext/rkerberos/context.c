@@ -1,6 +1,8 @@
 #include <rkerberos.h>
 
+#ifdef HAVE_PROFILE_H
 #include <profile.h>
+#endif
 
 VALUE cKrb5Context;
 
@@ -86,6 +88,7 @@ static VALUE rkrb5_context_initialize(int argc, VALUE *argv, VALUE self){
   v_secure = rb_hash_aref2(v_opts, ID2SYM(rb_intern("secure")));
   v_profile = rb_hash_aref2(v_opts, ID2SYM(rb_intern("profile")));
 
+#ifdef HAVE_PROFILE_INIT_PATH
   /*
    * If a profile path is supplied, load it via profile_init_path() and
    * create a context from that profile. The KRB5_INIT_CONTEXT_SECURE flag
@@ -111,6 +114,7 @@ static VALUE rkrb5_context_initialize(int argc, VALUE *argv, VALUE self){
 
     return self;
   }
+#endif
 
   // No profile given, choose secure or normal init.
   if (RTEST(v_secure)){

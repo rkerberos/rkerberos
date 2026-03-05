@@ -85,12 +85,8 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
     if(kerror)
       rb_raise(cKrb5Exception, "krb5_cc_default: %s", error_message(kerror));
   }
-  else{
-    Check_Type(v_name, T_STRING);
-    kerror = krb5_cc_resolve(ptr->ctx, StringValueCStr(v_name), &ptr->ccache);
-
-    if(kerror)
-      rb_raise(cKrb5Exception, "krb5_cc_resolve: %s", error_message(kerror));
+  else {
+    /* No principal and no explicit cache name => do not open a cache */
   }
 
   // Initialize the credentials cache if a principal was provided
@@ -252,6 +248,11 @@ static VALUE rkrb5_ccache_destroy(VALUE self){
 
   if(!ptr->ctx)
     rb_raise(cKrb5Exception, "no context has been established");
+
+  /* If there's no cache opened for this object return false as the
+     caller expects (no-op). This avoids passing NULL into krb5_cc_destroy. */
+  if (!ptr->ccache)
+    return Qfalse;
 
   kerror = krb5_cc_destroy(ptr->ctx, ptr->ccache);
 
