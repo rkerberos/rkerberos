@@ -1,15 +1,16 @@
 # spec/credentials_cache_spec.rb
 # RSpec tests for Kerberos::Krb5::CredentialsCache
-
+require 'spec_helper'
 require 'rkerberos'
 require 'etc'
 require 'open3'
 require 'tmpdir'
 
-RSpec.describe Kerberos::Krb5::CredentialsCache do
+RSpec.describe Kerberos::Krb5::CredentialsCache, :unix, :krb5_config do
   let(:login) do
     Etc.getlogin || ENV['USER'] || (Etc.getpwuid(Process.uid).name rescue nil)
   end
+
   let(:realm) { Kerberos::Krb5.new.default_realm }
   let(:princ) { "#{login}@#{realm}" }
   let(:cfile) { File.join(Dir.tmpdir, "krb5cc_#{Etc.getpwnam(login).uid}") }
@@ -29,6 +30,7 @@ RSpec.describe Kerberos::Krb5::CredentialsCache do
     it 'can be called with no arguments' do
       expect { described_class.new }.not_to raise_error
     end
+
     it 'does not create a cache with no arguments' do
       described_class.new
       expect(File.exist?(cfile)).to be false

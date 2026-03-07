@@ -3,7 +3,7 @@
 
 require 'rkerberos'
 
-RSpec.describe Kerberos::Kadm5::Policy do
+RSpec.describe 'Kerberos::Kadm5::Policy', :kadm5 do
   subject(:policy) { described_class.new(name: 'test', max_life: 10000) }
 
   describe 'name' do

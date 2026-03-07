@@ -1,18 +1,29 @@
 # spec/krb5_spec.rb
 # RSpec tests for Kerberos::Krb5
-
+require 'spec_helper'
 require 'rkerberos'
 require 'open3'
-require 'pty'
-require 'expect'
 
-RSpec.describe Kerberos::Krb5 do
+unless File::ALT_SEPARATOR
+  require 'pty'
+  require 'expect'
+end
+
+RSpec.describe Kerberos::Krb5, :krb5_config do
   before(:all) do
     @cache_found = true
     Open3.popen3('klist') { |_, _, stderr| @cache_found = false unless stderr.gets.nil? }
-    @krb5_conf = ENV['KRB5_CONFIG'] || '/etc/krb5.conf'
-    @realm = IO.read(@krb5_conf).split("\n").grep(/default_realm/).first.split('=').last.lstrip.chomp
+    # mirror spec_helper logic for default config location
+    @krb5_conf = ENV['KRB5_CONFIG'] || (
+      File::ALT_SEPARATOR ?
+        'C:\\ProgramData\\MIT\\Kerberos5\\krb5.ini' :
+        '/etc/krb5.conf'
+    )
+    unless File.exist?(@krb5_conf)
+      skip "krb5 configuration #{@krb5_conf} not found"
+    end
 
+    @realm = IO.read(@krb5_conf).split("\n").grep(/default_realm/).first.split('=').last.lstrip.chomp
   end
 
   subject(:krb5) { described_class.new }
@@ -48,7 +59,7 @@ RSpec.describe Kerberos::Krb5 do
     end
   end
 
-  describe '#verify_init_creds' do
+  describe '#verify_init_creds', :kadm5 do
     # Some KDC setups may not correctly set the initial password during
     # entrypoint startup; enforce it here via the admin API so the test is
     # deterministic.
@@ -116,7 +127,7 @@ RSpec.describe Kerberos::Krb5 do
     end
   end
 
-  describe '#change_password' do
+  describe '#change_password', :kadm5 do
     before do
       # Ensure testuser1 has a known password before each test.
       Kerberos::Kadm5.new(
@@ -186,7 +197,7 @@ RSpec.describe Kerberos::Krb5 do
     end
   end
 
-  describe '#get_init_creds_keytab' do
+  describe '#get_init_creds_keytab', :unix do
     before(:each) do
       @kt_file = File.join(Dir.tmpdir, "test_get_init_creds_#{Process.pid}_#{rand(10000)}.keytab")
 

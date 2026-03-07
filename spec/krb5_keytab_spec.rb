@@ -4,12 +4,14 @@
 require 'rkerberos'
 require 'tmpdir'
 require 'fileutils'
-require 'pty'
-require 'expect'
+
+unless File::ALT_SEPARATOR
+  require 'pty'
+  require 'expect'
+end
 
 
-
-RSpec.describe Kerberos::Krb5::Keytab do
+RSpec.describe Kerberos::Krb5::Keytab, :unix do
   before(:all) do
     @realm = Kerberos::Kadm5::Config.new.realm
     @keytab_file = File.join(Dir.tmpdir, 'test.keytab')

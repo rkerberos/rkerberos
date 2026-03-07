@@ -1,9 +1,9 @@
 # spec/principal_spec.rb
 # RSpec tests for Kerberos::Krb5::Principal
-
+require 'spec_helper'
 require 'rkerberos'
 
-RSpec.describe Kerberos::Krb5::Principal do
+RSpec.describe Kerberos::Krb5::Principal, :krb5_config do
   let(:name) { 'Jon' }
   subject(:princ) { described_class.new(name) }
 
