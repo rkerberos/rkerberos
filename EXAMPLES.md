@@ -34,6 +34,10 @@ The main class for Kerberos client operations: authentication, credential acquis
 # Simple instantiation
 krb5 = Kerberos::Krb5.new
 
+# With a shared context (see Kerberos::Krb5::Context)
+ctx = Kerberos::Krb5::Context.new
+krb5 = Kerberos::Krb5.new(context: ctx)
+
 # Block form — automatically closes when the block exits
 Kerberos::Krb5.new do |krb5|
   puts krb5.default_realm
@@ -179,7 +183,7 @@ krb5.close
 ### Version
 
 ```ruby
-puts Kerberos::Krb5::VERSION  # => "0.2.3"
+puts Kerberos::Krb5::VERSION  # => "0.3.0"
 ```
 
 ---
@@ -221,6 +225,33 @@ ctx = Kerberos::Krb5::Context.new(profile: '/opt/custom/krb5.conf', secure: true
 ctx.close
 ```
 
+### Sharing a Context
+
+A Context can be shared with other rkerberos objects via the `context:` keyword argument. This avoids repeatedly parsing configuration files and allows multiple objects to operate under the same Kerberos configuration.
+
+```ruby
+ctx = Kerberos::Krb5::Context.new(profile: '/opt/custom/krb5.conf')
+
+# All of these objects will share the same underlying krb5_context
+krb5   = Kerberos::Krb5.new(context: ctx)
+cc     = Kerberos::Krb5::CredentialsCache.new(context: ctx)
+keytab = Kerberos::Krb5::Keytab.new(context: ctx)
+princ  = Kerberos::Krb5::Principal.new(name: 'user@EXAMPLE.COM', context: ctx)
+config = Kerberos::Kadm5::Config.new(context: ctx)
+kadm5  = Kerberos::Kadm5.new(principal: 'admin/admin', password: 'admin_pass', context: ctx)
+
+# When sharing a context, the Context object owns the underlying krb5_context.
+# The objects that borrow it will NOT free the context when they are closed
+# or garbage collected — only closing the Context itself will release it.
+# Make sure the Context outlives all objects that reference it.
+
+krb5.close
+cc.close
+keytab.close
+kadm5.close
+ctx.close
+```
+
 ---
 
 ## Kerberos::Krb5::CredentialsCache
@@ -240,7 +271,7 @@ cc.close
 
 ```ruby
 # Creates (or reinitializes) the default cache with this principal
-cc = Kerberos::Krb5::CredentialsCache.new('user@EXAMPLE.COM')
+cc = Kerberos::Krb5::CredentialsCache.new(principal: 'user@EXAMPLE.COM')
 puts cc.primary_principal  # => "user@EXAMPLE.COM"
 
 cc.close
@@ -250,7 +281,7 @@ cc.close
 
 ```ruby
 # Use a specific cache file
-cc = Kerberos::Krb5::CredentialsCache.new(nil, 'FILE:/tmp/krb5cc_myapp')
+cc = Kerberos::Krb5::CredentialsCache.new(cache_name: 'FILE:/tmp/krb5cc_myapp')
 puts cc.cache_name  # => "/tmp/krb5cc_myapp"
 puts cc.cache_type  # => "FILE"
 
@@ -274,7 +305,7 @@ cc.close
 ### Duplicating a Cache
 
 ```ruby
-cc = Kerberos::Krb5::CredentialsCache.new('user@EXAMPLE.COM')
+cc = Kerberos::Krb5::CredentialsCache.new(principal: 'user@EXAMPLE.COM')
 cc2 = cc.dup  # Independent copy; closing one does not affect the other
 
 cc.close
@@ -286,7 +317,7 @@ cc2.close
 Destroys the cache file and invalidates the object. Returns `true` if the cache was destroyed or `false` if no cache was found.
 
 ```ruby
-cc = Kerberos::Krb5::CredentialsCache.new('user@EXAMPLE.COM')
+cc = Kerberos::Krb5::CredentialsCache.new(principal: 'user@EXAMPLE.COM')
 cc.destroy  # => true (also aliased as cc.delete)
 ```
 
@@ -326,7 +357,7 @@ keytab.close
 ### Opening a Specific Keytab
 
 ```ruby
-keytab = Kerberos::Krb5::Keytab.new('FILE:/etc/app.keytab')
+keytab = Kerberos::Krb5::Keytab.new(name: 'FILE:/etc/app.keytab')
 puts keytab.name  # => "FILE:/etc/app.keytab"
 
 keytab.close
@@ -439,7 +470,7 @@ Represents a Kerberos principal with associated metadata. Typically returned by 
 ### Creating a Principal
 
 ```ruby
-principal = Kerberos::Krb5::Principal.new('user@EXAMPLE.COM')
+principal = Kerberos::Krb5::Principal.new(name: 'user@EXAMPLE.COM')
 puts principal.principal  # => "user@EXAMPLE.COM"
 puts principal.name       # => "user@EXAMPLE.COM" (alias)
 puts principal.realm      # => "EXAMPLE.COM"
@@ -448,7 +479,7 @@ puts principal.realm      # => "EXAMPLE.COM"
 ### Using a Block
 
 ```ruby
-principal = Kerberos::Krb5::Principal.new('user@EXAMPLE.COM') do |p|
+principal = Kerberos::Krb5::Principal.new(name: 'user@EXAMPLE.COM') do |p|
   p.expire_time = Time.now + 86400 * 365
   p.max_life = 36000
 end
@@ -457,7 +488,7 @@ end
 ### Changing the Realm
 
 ```ruby
-principal = Kerberos::Krb5::Principal.new('user@EXAMPLE.COM')
+principal = Kerberos::Krb5::Principal.new(name: 'user@EXAMPLE.COM')
 puts principal.realm  # => "EXAMPLE.COM"
 
 principal.realm = 'OTHER.REALM.COM'
@@ -467,9 +498,9 @@ puts principal.realm  # => "OTHER.REALM.COM"
 ### Comparing Principals
 
 ```ruby
-p1 = Kerberos::Krb5::Principal.new('user@EXAMPLE.COM')
-p2 = Kerberos::Krb5::Principal.new('user@EXAMPLE.COM')
-p3 = Kerberos::Krb5::Principal.new('admin@EXAMPLE.COM')
+p1 = Kerberos::Krb5::Principal.new(name: 'user@EXAMPLE.COM')
+p2 = Kerberos::Krb5::Principal.new(name: 'user@EXAMPLE.COM')
+p3 = Kerberos::Krb5::Principal.new(name: 'admin@EXAMPLE.COM')
 
 p1 == p2  # => true
 p1 == p3  # => false
@@ -533,6 +564,20 @@ end
 Kerberos::Kadm5.new(principal: 'admin/admin', keytab: '/etc/admin.keytab') do |kadm5|
   # ...
 end
+```
+
+### Using a Shared Context
+
+```ruby
+ctx = Kerberos::Krb5::Context.new(profile: '/opt/custom/krb5.conf')
+
+Kerberos::Kadm5.new(principal: 'admin/admin', password: 'admin_pass', context: ctx) do |kadm5|
+  # The admin connection uses the custom Kerberos configuration
+  princ = kadm5.get_principal('user@EXAMPLE.COM')
+  puts princ.principal
+end
+
+ctx.close
 ```
 
 ### Specifying a Custom Service
@@ -731,6 +776,18 @@ puts config.num_keysalts    # => Integer
 puts config.keysalts        # => Array of KeySalt objects or nil
 
 puts config.inspect
+```
+
+### Using a Shared Context
+
+```ruby
+ctx = Kerberos::Krb5::Context.new(profile: '/opt/custom/krb5.conf')
+config = Kerberos::Kadm5::Config.new(context: ctx)
+
+puts config.realm
+puts config.admin_server
+
+ctx.close
 ```
 
 ### Inspecting KeySalt Entries
@@ -933,7 +990,7 @@ end
 
 # Keytab-specific errors
 begin
-  keytab = Kerberos::Krb5::Keytab.new('FILE:/nonexistent/path')
+  keytab = Kerberos::Krb5::Keytab.new(name: 'FILE:/nonexistent/path')
 rescue Kerberos::Krb5::Keytab::Exception => e
   puts "Keytab error: #{e.message}"
 end
