@@ -91,12 +91,16 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
       let(:cache) { Kerberos::Krb5::CredentialsCache.new(cache_name: cache_name) }
 
       before(:each) do
-        krb5.get_init_creds_password(user, pass)
-        krb5.verify_init_creds(ccache: cache)
+        krb5.get_init_creds_password(
+          principal: user,
+          password: pass,
+          service: 'kadmin/admin',
+          ccache: cache
+        )
       end
 
       after(:each) do
-        ccache.close rescue nil
+        cache.close rescue nil
         krb5.close rescue nil
         FileUtils.rm_f([cache_path, "#{cache_path}.lock"])
       end
