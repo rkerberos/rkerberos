@@ -60,26 +60,33 @@ static VALUE rkadm5_allocate(VALUE klass){
  *   Kerberos::Kadm5.new(:principal => 'name', :password => 'xxxxx')
  *   Kerberos::Kadm5.new(:principal => 'name', :keytab => '/path/to/your/keytab')
  *   Kerberos::Kadm5.new(:principal => 'name', :keytab => true)
+ *   Kerberos::Kadm5.new(:principal => 'name', :ccache => ccache_object)
  *
  * Creates and returns a new Kerberos::Kadm5 object. A hash argument is
  * accepted that allows you to specify a principal and a password, or
- * a keytab file.
+ * a keytab file, or a credentials cache.
  *
  * If you pass a string as the :keytab value it will attempt to use that file
  * for the keytab. If you pass true as the value it will attempt to use the
  * default keytab file, typically /etc/krb5.keytab.
+ *
+ * If you pass a Kerberos::Krb5::CredentialsCache object as the :ccache value,
+ * it will authenticate using the credentials stored in that cache via
+ * kadm5_init_with_creds.
  *
  * You may also pass the :service option to specify the service name. The
  * default is kadmin/admin.
  *
  * There is also a :db_args option, which is a single string or array of strings
  * containing options usually passed to kadmin with the -x switch. For a list of
- * available options, see the kadmin manpage
+ * available options, see the kadmin manpage.
+ *
+ * Only one of :password, :keytab, or :ccache may be specified.
  *
  */
 static VALUE rkadm5_initialize(VALUE self, VALUE v_opts){
   RUBY_KADM5* ptr;
-  VALUE v_principal, v_password, v_keytab, v_service, v_db_args, v_context;
+  VALUE v_principal, v_password, v_keytab, v_service, v_db_args, v_context, v_ccache;
   char* user;
   char* pass = NULL;
   char* keytab = NULL;
@@ -90,32 +97,51 @@ static VALUE rkadm5_initialize(VALUE self, VALUE v_opts){
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
   Check_Type(v_opts, T_HASH);
 
-  // Accept both string and symbol keys
-  v_principal = rb_hash_aref2(v_opts, rb_str_new_cstr("principal"));
-  if (NIL_P(v_principal)) v_principal = rb_hash_aref2(v_opts, ID2SYM(rb_intern("principal")));
+  v_principal = rb_hash_aref2(v_opts, ID2SYM(rb_intern("principal")));
+  v_password = rb_hash_aref2(v_opts, ID2SYM(rb_intern("password")));
+  v_keytab = rb_hash_aref2(v_opts, ID2SYM(rb_intern("keytab")));
+  v_ccache = rb_hash_aref2(v_opts, ID2SYM(rb_intern("ccache")));
 
-  // Principal must be specified
-  if(NIL_P(v_principal))
-    rb_raise(rb_eArgError, "principal must be specified");
+  // Validate mutual exclusivity
+  {
+    int auth_count = 0;
+    if(RTEST(v_password)) auth_count++;
+    if(RTEST(v_keytab))   auth_count++;
+    if(RTEST(v_ccache))   auth_count++;
 
-  Check_Type(v_principal, T_STRING);
-  user = StringValueCStr(v_principal);
+    if(auth_count > 1)
+      rb_raise(rb_eArgError, "only one of password, keytab, or ccache may be specified");
 
-  v_password = rb_hash_aref2(v_opts, rb_str_new_cstr("password"));
-  if (NIL_P(v_password)) v_password = rb_hash_aref2(v_opts, ID2SYM(rb_intern("password")));
-  v_keytab = rb_hash_aref2(v_opts, rb_str_new_cstr("keytab"));
-  if (NIL_P(v_keytab)) v_keytab = rb_hash_aref2(v_opts, ID2SYM(rb_intern("keytab")));
+    if(auth_count == 0)
+      rb_raise(rb_eArgError, "one of password, keytab, or ccache must be specified");
+  }
 
-  if(RTEST(v_password) && RTEST(v_keytab))
-    rb_raise(rb_eArgError, "cannot use both a password and a keytab");
-
+  // Principal must be specified if using a password
   if(RTEST(v_password)){
+    if(NIL_P(v_principal))
+      rb_raise(rb_eArgError, "principal must be specified");
+
     Check_Type(v_password, T_STRING);
+    Check_Type(v_principal, T_STRING);
+
     pass = StringValueCStr(v_password);
   }
 
-  v_service = rb_hash_aref2(v_opts, rb_str_new_cstr("service"));
-  if (NIL_P(v_service)) v_service = rb_hash_aref2(v_opts, ID2SYM(rb_intern("service")));
+  if(RTEST(v_ccache) && NIL_P(v_principal)){
+    if(NIL_P(v_principal))
+      v_principal = rb_funcall(v_ccache, rb_intern("principal"), 0);
+  }
+
+  // For a keytab use the first entry's principal
+  if(RTEST(v_keytab) && NIL_P(v_principal)) {
+    VALUE v_enum, v_first;
+    v_enum = rb_funcall(v_keytab, rb_intern("each"), 0);
+    v_first = rb_funcall(v_enum, rb_intern("first"), 0);
+    v_principal = rb_iv_get(v_first, "@principal");
+  }
+
+  user = StringValueCStr(v_principal);
+  v_service = rb_hash_aref2(v_opts, ID2SYM(rb_intern("service")));
 
   if(NIL_P(v_service)){
     service = (char *) "kadmin/admin";
@@ -125,13 +151,10 @@ static VALUE rkadm5_initialize(VALUE self, VALUE v_opts){
     service = StringValueCStr(v_service);
   }
 
-  v_db_args = rb_hash_aref2(v_opts, rb_str_new_cstr("db_args"));
-  if (NIL_P(v_db_args)) v_db_args = rb_hash_aref2(v_opts, ID2SYM(rb_intern("db_args")));
+  v_db_args = rb_hash_aref2(v_opts, ID2SYM(rb_intern("db_args")));
   ptr->db_args = parse_db_args(v_db_args);
 
-  // Check for an optional context keyword argument
-  v_context = rb_hash_aref2(v_opts, rb_str_new_cstr("context"));
-  if (NIL_P(v_context)) v_context = rb_hash_aref2(v_opts, ID2SYM(rb_intern("context")));
+  v_context = rb_hash_aref2(v_opts, ID2SYM(rb_intern("context")));
 
   // Initialize or borrow the context
   if(RTEST(v_context)){
@@ -205,8 +228,31 @@ static VALUE rkadm5_initialize(VALUE self, VALUE v_opts){
     if(kerror)
       rb_raise(cKadm5Exception, "kadm5_init_with_skey: %s", error_message(kerror));
   }
-  else{
-    // TODO: Credentials cache.
+  else if(RTEST(v_ccache)){
+    RUBY_KRB5_CCACHE* cc_ptr;
+
+    if(!rb_obj_is_kind_of(v_ccache, cKrb5CCache))
+      rb_raise(rb_eTypeError, "ccache must be a Kerberos::Krb5::CredentialsCache object");
+
+    TypedData_Get_Struct(v_ccache, RUBY_KRB5_CCACHE, &rkrb5_ccache_data_type, cc_ptr);
+
+    if(!cc_ptr->ccache)
+      rb_raise(cKrb5Exception, "credentials cache is closed or destroyed");
+
+    kerror = kadm5_init_with_creds(
+      ptr->ctx,
+      user,
+      cc_ptr->ccache,
+      service,
+      NULL,
+      KADM5_STRUCT_VERSION,
+      KADM5_API_VERSION_3,
+      ptr->db_args,
+      &ptr->handle
+    );
+
+    if(kerror)
+      rb_raise(cKadm5Exception, "kadm5_init_with_creds: %s", error_message(kerror));
   }
 
   if(rb_block_given_p()){
@@ -398,6 +444,7 @@ static VALUE rkadm5_create_principal(int argc, VALUE* argv, VALUE self){
 
     // Forward optional attributes from the Principal object
     v_policy = rb_iv_get(v_principal, "@policy");
+
     if(RTEST(v_policy)){
       Check_Type(v_policy, T_STRING);
       princ.policy = StringValueCStr(v_policy);
@@ -405,30 +452,35 @@ static VALUE rkadm5_create_principal(int argc, VALUE* argv, VALUE self){
     }
 
     v_expire = rb_iv_get(v_principal, "@expire_time");
+
     if(RTEST(v_expire)){
       princ.princ_expire_time = (krb5_timestamp)NUM2LONG(rb_funcall(v_expire, rb_intern("to_i"), 0));
       mask |= KADM5_PRINC_EXPIRE_TIME;
     }
 
     v_pw_expire = rb_iv_get(v_principal, "@password_expiration");
+
     if(RTEST(v_pw_expire)){
       princ.pw_expiration = (krb5_timestamp)NUM2LONG(rb_funcall(v_pw_expire, rb_intern("to_i"), 0));
       mask |= KADM5_PW_EXPIRATION;
     }
 
     v_max_life = rb_iv_get(v_principal, "@max_life");
+
     if(RTEST(v_max_life)){
       princ.max_life = NUM2LONG(v_max_life);
       mask |= KADM5_MAX_LIFE;
     }
 
     v_max_renew = rb_iv_get(v_principal, "@max_renewable_life");
+
     if(RTEST(v_max_renew)){
       princ.max_renewable_life = NUM2LONG(v_max_renew);
       mask |= KADM5_MAX_RLIFE;
     }
 
     v_attrs = rb_iv_get(v_principal, "@attributes");
+
     if(RTEST(v_attrs)){
       princ.attributes = NUM2LONG(v_attrs);
       mask |= KADM5_ATTRIBUTES;
