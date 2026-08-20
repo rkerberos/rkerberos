@@ -53,11 +53,11 @@ static VALUE rkrb5_context_close(VALUE self){
 
 /*
  * call-seq:
- *   Kerberos::Context.new(options = {})
+ *   Kerberos::Krb5::Context.new(secure: false, profile: nil)
  *
  * Creates and returns a new Kerberos::Context object.
  *
- * The options hash may be one or both of the following keys:
+ * The following keyword arguments are supported:
  *
  *   :secure  => true|false           # Use config files only, ignore env variables
  *   :profile => '/path/to/krb5.conf' # Use the specified profile file
@@ -68,11 +68,13 @@ static VALUE rkrb5_context_initialize(int argc, VALUE *argv, VALUE self){
   RUBY_KRB5_CONTEXT* ptr;
   VALUE v_opts;
   VALUE v_secure, v_profile;
+  ID kw_table[2] = { rb_intern("secure"), rb_intern("profile") };
+  VALUE kw_vals[2];
   krb5_error_code kerror;
 
   TypedData_Get_Struct(self, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ptr);
 
-  rb_scan_args(argc, argv, "01", &v_opts);
+  rb_scan_args(argc, argv, "0:", &v_opts);
 
   // Default behavior is a normal context that may respect environment.
   if (NIL_P(v_opts)) {
@@ -83,10 +85,9 @@ static VALUE rkrb5_context_initialize(int argc, VALUE *argv, VALUE self){
     return self;
   }
 
-  Check_Type(v_opts, T_HASH);
-
-  v_secure = rb_hash_aref2(v_opts, ID2SYM(rb_intern("secure")));
-  v_profile = rb_hash_aref2(v_opts, ID2SYM(rb_intern("profile")));
+  rb_get_kwargs(v_opts, kw_table, 0, 2, kw_vals);
+  v_secure = kw_vals[0] == Qundef ? Qfalse : kw_vals[0];
+  v_profile = kw_vals[1] == Qundef ? Qnil : kw_vals[1];
 
   /*
    * If a profile path is supplied, load it via profile_init_path() and

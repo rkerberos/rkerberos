@@ -83,19 +83,21 @@ static VALUE rkrb5_allocate(VALUE klass){
 static VALUE rkrb5_initialize(int argc, VALUE* argv, VALUE self){
   RUBY_KRB5* ptr;
   VALUE v_opts, v_context;
+  ID kw_table[1] = { rb_intern("context") };
+  VALUE kw_vals[1];
   krb5_error_code kerror;
 
   TypedData_Get_Struct(self, RUBY_KRB5, &rkrb5_data_type, ptr);
 
   rb_scan_args(argc, argv, "0:", &v_opts);
 
-  v_context = Qnil;
+  if(NIL_P(v_opts))
+    v_opts = rb_hash_new();
 
-  if(!NIL_P(v_opts)){
-    v_context = rb_hash_aref2(v_opts, ID2SYM(rb_intern("context")));
-  }
+  rb_get_kwargs(v_opts, kw_table, 0, 1, kw_vals);
+  v_context = kw_vals[0] == Qundef ? Qnil : kw_vals[0];
 
-  if(RTEST(v_context)){
+  if(!NIL_P(v_context)){
     RUBY_KRB5_CONTEXT* ctx_ptr;
 
     if(!rb_obj_is_kind_of(v_context, cKrb5Context))
@@ -198,6 +200,8 @@ static VALUE rkrb5_get_init_creds_keytab(int argc, VALUE* argv, VALUE self){
   RUBY_KRB5* ptr;
   VALUE v_user = Qnil, v_keytab_name = Qnil, v_service = Qnil, v_ccache = Qnil;
   VALUE v_kwargs = Qnil;
+  ID kw_table[4] = { rb_intern("principal"), rb_intern("keytab"), rb_intern("service"), rb_intern("ccache") };
+  VALUE kw_vals[4];
   char* user;
   char* service;
   char keytab_name[MAX_KEYTAB_NAME_LEN];
@@ -224,18 +228,16 @@ static VALUE rkrb5_get_init_creds_keytab(int argc, VALUE* argv, VALUE self){
   krb5_free_cred_contents(ptr->ctx, &ptr->creds);
   memset(&ptr->creds, 0, sizeof(ptr->creds));
 
-  rb_scan_args(argc, argv, "04:", &v_user, &v_keytab_name, &v_service, &v_ccache, &v_kwargs);
+  rb_scan_args(argc, argv, "0:", &v_kwargs);
 
-  if(!NIL_P(v_kwargs)){
-    ID kw_table[4] = { rb_intern("principal"), rb_intern("keytab"), rb_intern("service"), rb_intern("ccache") };
-    VALUE kw_vals[4];
+  if(NIL_P(v_kwargs))
+    v_kwargs = rb_hash_new();
 
-    rb_get_kwargs(v_kwargs, kw_table, 0, 4, kw_vals);
-    if(kw_vals[0] != Qundef) v_user = kw_vals[0];
-    if(kw_vals[1] != Qundef) v_keytab_name = kw_vals[1];
-    if(kw_vals[2] != Qundef) v_service = kw_vals[2];
-    if(kw_vals[3] != Qundef) v_ccache = kw_vals[3];
-  }
+  rb_get_kwargs(v_kwargs, kw_table, 0, 4, kw_vals);
+  if(kw_vals[0] != Qundef) v_user = kw_vals[0];
+  if(kw_vals[1] != Qundef) v_keytab_name = kw_vals[1];
+  if(kw_vals[2] != Qundef) v_service = kw_vals[2];
+  if(kw_vals[3] != Qundef) v_ccache = kw_vals[3];
 
   // Validate argument types before allocating opt, so type errors don't leak it.
   if(!NIL_P(v_user))
@@ -354,7 +356,7 @@ static VALUE rkrb5_get_init_creds_keytab(int argc, VALUE* argv, VALUE self){
  *
  * Example:
  *
- * krb5.get_init_creds_password('foo', 'XXXXXX') # Authenticate 'foo' user
+ * krb5.get_init_creds_password(principal: 'foo', password: 'XXXXXX') # Authenticate 'foo' user
  * krb5.change_password('XXXXXX', 'YYYYYY')      # Change password for 'foo'
  */
 static VALUE rkrb5_change_password(VALUE self, VALUE v_old, VALUE v_new){
@@ -445,6 +447,8 @@ static VALUE rkrb5_get_init_creds_passwd(int argc, VALUE* argv, VALUE self){
   RUBY_KRB5* ptr;
   VALUE v_user = Qnil, v_pass = Qnil, v_service = Qnil, v_ccache = Qnil;
   VALUE v_kwargs = Qnil;
+  ID kw_table[4] = { rb_intern("principal"), rb_intern("password"), rb_intern("service"), rb_intern("ccache") };
+  VALUE kw_vals[4];
   char* user;
   char* pass;
   char* service;
@@ -465,18 +469,16 @@ static VALUE rkrb5_get_init_creds_passwd(int argc, VALUE* argv, VALUE self){
   krb5_free_cred_contents(ptr->ctx, &ptr->creds);
   memset(&ptr->creds, 0, sizeof(ptr->creds));
 
-  rb_scan_args(argc, argv, "04:", &v_user, &v_pass, &v_service, &v_ccache, &v_kwargs);
+  rb_scan_args(argc, argv, "0:", &v_kwargs);
 
-  if(!NIL_P(v_kwargs)){
-    ID kw_table[4] = { rb_intern("principal"), rb_intern("password"), rb_intern("service"), rb_intern("ccache") };
-    VALUE kw_vals[4];
+  if(NIL_P(v_kwargs))
+    v_kwargs = rb_hash_new();
 
-    rb_get_kwargs(v_kwargs, kw_table, 0, 4, kw_vals);
-    if(kw_vals[0] != Qundef) v_user = kw_vals[0];
-    if(kw_vals[1] != Qundef) v_pass = kw_vals[1];
-    if(kw_vals[2] != Qundef) v_service = kw_vals[2];
-    if(kw_vals[3] != Qundef) v_ccache = kw_vals[3];
-  }
+  rb_get_kwargs(v_kwargs, kw_table, 0, 4, kw_vals);
+  if(kw_vals[0] != Qundef) v_user = kw_vals[0];
+  if(kw_vals[1] != Qundef) v_pass = kw_vals[1];
+  if(kw_vals[2] != Qundef) v_service = kw_vals[2];
+  if(kw_vals[3] != Qundef) v_ccache = kw_vals[3];
 
   if(NIL_P(v_user) || NIL_P(v_pass))
     rb_raise(rb_eArgError, "principal and password are required");
@@ -537,7 +539,7 @@ static VALUE rkrb5_get_init_creds_passwd(int argc, VALUE* argv, VALUE self){
 
  /*
  * call-seq:
- *   krb5.authenticate!(user, password, service = nil)
+ *   krb5.authenticate!(principal:, password:, service: nil)
  *
  * Convenience method that: acquires initial credentials via password and
  * immediately verifies those credentials using `verify_init_creds` with
@@ -549,7 +551,9 @@ static VALUE rkrb5_get_init_creds_passwd(int argc, VALUE* argv, VALUE self){
  */
 static VALUE rkrb5_authenticate_bang(int argc, VALUE* argv, VALUE self){
   RUBY_KRB5* ptr;
-  VALUE v_user, v_pass, v_service;
+  VALUE v_kwargs, v_user, v_pass, v_service;
+  ID kw_table[3] = { rb_intern("principal"), rb_intern("password"), rb_intern("service") };
+  VALUE kw_vals[3];
   char* user;
   char* pass;
   char* service;
@@ -570,8 +574,15 @@ static VALUE rkrb5_authenticate_bang(int argc, VALUE* argv, VALUE self){
   krb5_free_cred_contents(ptr->ctx, &ptr->creds);
   memset(&ptr->creds, 0, sizeof(ptr->creds));
 
-  // Require user and password, optional service
-  rb_scan_args(argc, argv, "21", &v_user, &v_pass, &v_service);
+  rb_scan_args(argc, argv, "0:", &v_kwargs);
+
+  if(NIL_P(v_kwargs))
+    v_kwargs = rb_hash_new();
+
+  rb_get_kwargs(v_kwargs, kw_table, 2, 1, kw_vals);
+  v_user = kw_vals[0];
+  v_pass = kw_vals[1];
+  v_service = kw_vals[2] == Qundef ? Qnil : kw_vals[2];
 
   Check_Type(v_user, T_STRING);
   Check_Type(v_pass, T_STRING);
@@ -805,6 +816,8 @@ static VALUE rkrb5_verify_init_creds(int argc, VALUE* argv, VALUE self){
   RUBY_KRB5* ptr;
   VALUE v_server = Qnil, v_keytab = Qnil, v_ccache = Qnil;
   VALUE v_kwargs = Qnil;
+  ID kw_table[3] = { rb_intern("server"), rb_intern("keytab"), rb_intern("ccache") };
+  VALUE kw_vals[3];
   krb5_error_code kerror;
   krb5_principal server_princ = NULL;
   RUBY_KRB5_KEYTAB* ktptr = NULL;
@@ -812,17 +825,15 @@ static VALUE rkrb5_verify_init_creds(int argc, VALUE* argv, VALUE self){
   krb5_keytab keytab = NULL;
   krb5_ccache *ccache_ptr = NULL;
 
-  rb_scan_args(argc, argv, "03:", &v_server, &v_keytab, &v_ccache, &v_kwargs);
+  rb_scan_args(argc, argv, "0:", &v_kwargs);
 
-  if(!NIL_P(v_kwargs)){
-    ID kw_table[3] = { rb_intern("server"), rb_intern("keytab"), rb_intern("ccache") };
-    VALUE kw_vals[3];
+  if(NIL_P(v_kwargs))
+    v_kwargs = rb_hash_new();
 
-    rb_get_kwargs(v_kwargs, kw_table, 0, 3, kw_vals);
-    if(kw_vals[0] != Qundef) v_server = kw_vals[0];
-    if(kw_vals[1] != Qundef) v_keytab = kw_vals[1];
-    if(kw_vals[2] != Qundef) v_ccache = kw_vals[2];
-  }
+  rb_get_kwargs(v_kwargs, kw_table, 0, 3, kw_vals);
+  if(kw_vals[0] != Qundef) v_server = kw_vals[0];
+  if(kw_vals[1] != Qundef) v_keytab = kw_vals[1];
+  if(kw_vals[2] != Qundef) v_ccache = kw_vals[2];
 
   TypedData_Get_Struct(self, RUBY_KRB5, &rkrb5_data_type, ptr);
 

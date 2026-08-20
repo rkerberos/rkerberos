@@ -209,6 +209,8 @@ static VALUE rkrb5_keytab_add_entry(int argc, VALUE* argv, VALUE self){
   krb5_keytab_entry entry;
   krb5_data pwd_data, salt;
   VALUE v_opts, v_principal, v_password, v_vno, v_enctype;
+  ID kw_table[4] = { rb_intern("principal"), rb_intern("password"), rb_intern("vno"), rb_intern("enctype") };
+  VALUE kw_vals[4];
 
   TypedData_Get_Struct(self, RUBY_KRB5_KEYTAB, &rkrb5_keytab_data_type, ptr);
 
@@ -218,18 +220,13 @@ static VALUE rkrb5_keytab_add_entry(int argc, VALUE* argv, VALUE self){
   rb_scan_args(argc, argv, "0:", &v_opts);
 
   if(NIL_P(v_opts))
-    rb_raise(rb_eArgError, "principal: and password: are required");
+    v_opts = rb_hash_new();
 
-  v_principal = rb_hash_aref2(v_opts, ID2SYM(rb_intern("principal")));
-  v_password  = rb_hash_aref2(v_opts, ID2SYM(rb_intern("password")));
-  v_vno       = rb_hash_aref2(v_opts, ID2SYM(rb_intern("vno")));
-  v_enctype   = rb_hash_aref2(v_opts, ID2SYM(rb_intern("enctype")));
-
-  if(NIL_P(v_principal))
-    rb_raise(rb_eArgError, "principal: is required");
-
-  if(NIL_P(v_password))
-    rb_raise(rb_eArgError, "password: is required");
+  rb_get_kwargs(v_opts, kw_table, 2, 2, kw_vals);
+  v_principal = kw_vals[0];
+  v_password = kw_vals[1];
+  v_vno = kw_vals[2] == Qundef ? Qnil : kw_vals[2];
+  v_enctype = kw_vals[3] == Qundef ? Qnil : kw_vals[3];
 
   Check_Type(v_principal, T_STRING);
   Check_Type(v_password, T_STRING);
@@ -306,6 +303,8 @@ static VALUE rkrb5_keytab_remove_entry(int argc, VALUE* argv, VALUE self){
   krb5_enctype match_enctype;
   int removed = 0;
   VALUE v_opts, v_principal, v_vno, v_enctype;
+  ID kw_table[3] = { rb_intern("principal"), rb_intern("vno"), rb_intern("enctype") };
+  VALUE kw_vals[3];
 
   TypedData_Get_Struct(self, RUBY_KRB5_KEYTAB, &rkrb5_keytab_data_type, ptr);
 
@@ -315,14 +314,12 @@ static VALUE rkrb5_keytab_remove_entry(int argc, VALUE* argv, VALUE self){
   rb_scan_args(argc, argv, "0:", &v_opts);
 
   if(NIL_P(v_opts))
-    rb_raise(rb_eArgError, "principal: is required");
+    v_opts = rb_hash_new();
 
-  v_principal = rb_hash_aref2(v_opts, ID2SYM(rb_intern("principal")));
-  v_vno       = rb_hash_aref2(v_opts, ID2SYM(rb_intern("vno")));
-  v_enctype   = rb_hash_aref2(v_opts, ID2SYM(rb_intern("enctype")));
-
-  if(NIL_P(v_principal))
-    rb_raise(rb_eArgError, "principal: is required");
+  rb_get_kwargs(v_opts, kw_table, 1, 2, kw_vals);
+  v_principal = kw_vals[0];
+  v_vno = kw_vals[1] == Qundef ? Qnil : kw_vals[1];
+  v_enctype = kw_vals[2] == Qundef ? Qnil : kw_vals[2];
 
   Check_Type(v_principal, T_STRING);
 
@@ -553,18 +550,22 @@ static VALUE rkrb5_keytab_initialize(int argc, VALUE* argv, VALUE self){
   VALUE v_keytab_name = Qnil;
   VALUE v_opts = Qnil;
   VALUE v_context = Qnil;
+  ID kw_table[2] = { rb_intern("name"), rb_intern("context") };
+  VALUE kw_vals[2];
 
   TypedData_Get_Struct(self, RUBY_KRB5_KEYTAB, &rkrb5_keytab_data_type, ptr);
 
   rb_scan_args(argc, argv, "0:", &v_opts);
 
-  if(!NIL_P(v_opts)){
-    v_keytab_name = rb_hash_aref2(v_opts, ID2SYM(rb_intern("name")));
-    v_context = rb_hash_aref2(v_opts, ID2SYM(rb_intern("context")));
-  }
+  if(NIL_P(v_opts))
+    v_opts = rb_hash_new();
+
+  rb_get_kwargs(v_opts, kw_table, 0, 2, kw_vals);
+  v_keytab_name = kw_vals[0] == Qundef ? Qnil : kw_vals[0];
+  v_context = kw_vals[1] == Qundef ? Qnil : kw_vals[1];
 
   // Initialize or borrow the context
-  if(RTEST(v_context)){
+  if(!NIL_P(v_context)){
     RUBY_KRB5_CONTEXT* ctx_ptr;
 
     if(!rb_obj_is_kind_of(v_context, cKrb5Context))

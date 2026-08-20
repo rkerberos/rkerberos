@@ -60,6 +60,10 @@ RSpec.describe Kerberos::Krb5::CredentialsCache do
       expect { described_class.new(princ) }.to raise_error(ArgumentError)
     end
 
+    it 'rejects unknown keywords' do
+      expect { described_class.new(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
+    end
+
     it 'accepts a context option' do
       ctx = Kerberos::Krb5::Context.new
       expect { described_class.new(principal: princ, context: ctx) }.not_to raise_error

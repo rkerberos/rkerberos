@@ -39,9 +39,10 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
       }.not_to raise_error
     end
 
-    it 'only accepts a hash argument' do
-      expect { subject.new(user) }.to raise_error(TypeError)
-      expect { subject.new(1) }.to raise_error(TypeError)
+    it 'accepts only keyword arguments' do
+      expect { subject.new({principal: user, password: pass}) }.to raise_error(ArgumentError)
+      expect { subject.new(user) }.to raise_error(ArgumentError)
+      expect { subject.new(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
     end
 
     it 'accepts a block and yields itself' do
@@ -50,7 +51,7 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
     end
 
     it 'requires principal to be specified' do
-      expect { subject.new({}) }.to raise_error(ArgumentError)
+      expect { subject.new }.to raise_error(ArgumentError)
     end
 
     it 'requires principal to be a string' do
@@ -192,6 +193,38 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
     end
   end
 
+  describe '#create_policy' do
+    before(:each) do
+      @kadm5 = subject.new(principal: user, password: pass)
+      @policy_name = "keyword_policy_#{Process.pid}"
+    end
+
+    after(:each) do
+      @kadm5.delete_policy(@policy_name) rescue nil
+      @kadm5.close
+    end
+
+    it 'accepts policy attributes as keywords' do
+      expect {
+        @kadm5.create_policy(name: @policy_name, min_length: 8)
+      }.not_to raise_error
+      expect(@kadm5.get_policy(@policy_name).min_length).to eq(8)
+    end
+
+    it 'accepts a Policy object positionally' do
+      policy = Kerberos::Kadm5::Policy.new(name: @policy_name, min_length: 9)
+      expect { @kadm5.create_policy(policy) }.not_to raise_error
+      expect(@kadm5.get_policy(@policy_name).min_length).to eq(9)
+    end
+
+    it 'rejects positional option hashes and unknown keywords' do
+      expect { @kadm5.create_policy({name: @policy_name}) }.to raise_error(TypeError)
+      expect {
+        @kadm5.create_policy(name: @policy_name, unknown: true)
+      }.to raise_error(ArgumentError, /unknown keyword/)
+    end
+  end
+
   describe '#create_principal' do
     before(:each) do
       @kadm5 = subject.new(principal: user, password: pass)
@@ -246,6 +279,15 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
       expect {
         @kadm5.create_principal
       }.to raise_error(ArgumentError)
+    end
+
+    it 'rejects positional arguments and unknown keywords' do
+      expect {
+        @kadm5.create_principal("positional@#{@realm}", 'Test1234!')
+      }.to raise_error(ArgumentError)
+      expect {
+        @kadm5.create_principal(name: "unknown_kw@#{@realm}", password: 'Test1234!', unknown: true)
+      }.to raise_error(ArgumentError, /unknown keyword/)
     end
 
     it 'raises ArgumentError when both name: and principal: are given' do

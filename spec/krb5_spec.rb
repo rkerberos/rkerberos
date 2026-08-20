@@ -49,6 +49,11 @@ RSpec.describe Kerberos::Krb5 do
       context.close
       expect { described_class.new(context: context) }.to raise_error(Kerberos::Krb5::Exception, /context is closed/)
     end
+
+    it 'rejects positional option hashes and unknown keywords' do
+      expect { described_class.new({context: nil}) }.to raise_error(ArgumentError)
+      expect { described_class.new(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
+    end
   end
 
   describe '#get_default_realm' do
@@ -88,6 +93,13 @@ RSpec.describe Kerberos::Krb5 do
       expect(krb5).to respond_to(:verify_init_creds)
     end
 
+    it 'requires get_init_creds_password arguments as keywords' do
+      expect { krb5.get_init_creds_password(user, 'changeme') }.to raise_error(ArgumentError)
+      expect {
+        krb5.get_init_creds_password(principal: user, password: 'changeme', unknown: true)
+      }.to raise_error(ArgumentError, /unknown keyword/)
+    end
+
     it 'raises when no credentials have been acquired' do
       expect { krb5.verify_init_creds }.to raise_error(Kerberos::Krb5::Exception)
     end
@@ -96,6 +108,11 @@ RSpec.describe Kerberos::Krb5 do
       expect { krb5.verify_init_creds(server: true) }.to raise_error(TypeError)
       expect { krb5.verify_init_creds(keytab: true) }.to raise_error(TypeError)
       expect { krb5.verify_init_creds(ccache: true) }.to raise_error(TypeError)
+    end
+
+    it 'accepts only documented keyword arguments' do
+      expect { krb5.verify_init_creds(nil) }.to raise_error(ArgumentError)
+      expect { krb5.verify_init_creds(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
     end
 
     it 'verifies credentials obtained via password' do
@@ -124,17 +141,26 @@ RSpec.describe Kerberos::Krb5 do
 
     it 'provides authenticate! which acquires and verifies (Zanarotti mitigation)' do
       expect(krb5).to respond_to(:authenticate!)
-      expect(krb5.authenticate!(user, 'changeme')).to be true
+      expect(krb5.authenticate!(principal: user, password: 'changeme')).to be true
       expect(krb5.verify_init_creds).to be true
     end
 
     it 'accepts an optional service argument' do
-      expect { krb5.authenticate!(user, 'changeme', 'kadmin/changepw') }.not_to raise_error
+      expect {
+        krb5.authenticate!(principal: user, password: 'changeme', service: 'kadmin/changepw')
+      }.not_to raise_error
       expect(krb5.verify_init_creds).to be true
     end
 
     it 'validates argument types for authenticate!' do
-      expect { krb5.authenticate!(true, true) }.to raise_error(TypeError)
+      expect { krb5.authenticate!(principal: true, password: true) }.to raise_error(TypeError)
+    end
+
+    it 'requires authenticate! arguments as keywords' do
+      expect { krb5.authenticate!(user, 'changeme') }.to raise_error(ArgumentError)
+      expect {
+        krb5.authenticate!(principal: user, password: 'changeme', unknown: true)
+      }.to raise_error(ArgumentError, /unknown keyword/)
     end
   end
 
@@ -226,6 +252,11 @@ RSpec.describe Kerberos::Krb5 do
 
     it 'responds to get_init_creds_keytab' do
       expect(krb5).to respond_to(:get_init_creds_keytab)
+    end
+
+    it 'accepts only documented keyword arguments' do
+      expect { krb5.get_init_creds_keytab(user) }.to raise_error(ArgumentError)
+      expect { krb5.get_init_creds_keytab(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
     end
 
     it 'acquires credentials for a principal from a supplied keytab file' do

@@ -30,6 +30,11 @@ RSpec.describe Kerberos::Krb5::Principal do
       expect { described_class.new(name: 'Jon', context: ctx) }.not_to raise_error
     end
 
+    it 'rejects positional option hashes and unknown keywords' do
+      expect { described_class.new({name: 'Jon'}) }.to raise_error(ArgumentError)
+      expect { described_class.new(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
+    end
+
     it 'uses the same realm when a context is provided' do
       ctx = Kerberos::Krb5::Context.new
       p1 = described_class.new(name: 'Jon')

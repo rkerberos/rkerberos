@@ -28,7 +28,7 @@ krb.get_init_creds_keytab(principal: 'host/server.example.com', keytab: kt_name,
 
 # Admin
 Kerberos::Kadm5.new(principal: ENV['KRB5_ADMIN_PRINCIPAL'], password: ENV['KRB5_ADMIN_PASSWORD']) do |kadmin|
-  kadmin.create_principal('newuser@EXAMPLE.COM', 'initialpass')
+  kadmin.create_principal(name: 'newuser@EXAMPLE.COM', password: 'initialpass')
   kadmin.set_password('newuser@EXAMPLE.COM', 'betterpass')
   kadmin.delete_principal('newuser@EXAMPLE.COM')
 end
@@ -79,7 +79,7 @@ ctx.close
 # Testing
 
 ## Prerequisites
-- Ruby 3.4 or later
+- Ruby 3.2 or later
 - Docker or Podman
 - docker-compose or podman-compose
 

@@ -37,6 +37,11 @@ RSpec.describe 'Kerberos::Kadm5::Config', :kadm5 do
       ctx.close
       expect { klass.new(context: ctx) }.to raise_error(Kerberos::Krb5::Exception)
     end
+
+    it 'rejects positional option hashes and unknown keywords' do
+      expect { klass.new({context: nil}) }.to raise_error(ArgumentError)
+      expect { klass.new(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
+    end
   end
 
   describe 'realm' do
