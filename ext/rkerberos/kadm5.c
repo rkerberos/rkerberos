@@ -8,6 +8,7 @@ VALUE cKadm5PrincipalNotFoundException;
 
 // Prototype
 static VALUE rkadm5_close(VALUE);
+static void rkadm5_check_open(RUBY_KADM5 *);
 static void free_tl_data(krb5_tl_data *);
 static void free_db_args(char**);
 char** parse_db_args(VALUE v_db_args);
@@ -33,6 +34,8 @@ static void rkadm5_typed_free(void *ptr) {
     krb5_free_principal(k->ctx, k->princ);
   if (k->ctx && k->rb_context == Qnil)
     krb5_free_context(k->ctx);
+  else if (k->rb_context != Qnil)
+    rkrb5_context_release(k->rb_context);
   free_db_args(k->db_args);
   free(k);
 }
@@ -53,6 +56,11 @@ static VALUE rkadm5_allocate(VALUE klass){
   memset(ptr, 0, sizeof(RUBY_KADM5));
   ptr->rb_context = Qnil;
   return TypedData_Wrap_Struct(klass, &rkadm5_data_type, ptr);
+}
+
+static void rkadm5_check_open(RUBY_KADM5 *ptr){
+  if(!ptr->ctx || !ptr->handle)
+    rb_raise(cKadm5Exception, "no administrative context has been established");
 }
 
 /*
@@ -140,17 +148,14 @@ static VALUE rkadm5_initialize(int argc, VALUE* argv, VALUE self){
     pass = StringValueCStr(v_password);
   }
 
-  if(RTEST(v_ccache) && NIL_P(v_principal)){
-    if(NIL_P(v_principal))
-      v_principal = rb_funcall(v_ccache, rb_intern("principal"), 0);
-  }
+  if(RTEST(v_keytab) && NIL_P(v_principal))
+    rb_raise(rb_eArgError, "principal must be specified when using a keytab");
 
-  // For a keytab use the first entry's principal
-  if(RTEST(v_keytab) && NIL_P(v_principal)) {
-    VALUE v_enum, v_first;
-    v_enum = rb_funcall(v_keytab, rb_intern("each"), 0);
-    v_first = rb_funcall(v_enum, rb_intern("first"), 0);
-    v_principal = rb_iv_get(v_first, "@principal");
+  if(RTEST(v_ccache) && !rb_obj_is_kind_of(v_ccache, cKrb5CCache))
+    rb_raise(rb_eTypeError, "ccache must be a Kerberos::Krb5::CredentialsCache object");
+
+  if(RTEST(v_ccache) && NIL_P(v_principal)){
+    v_principal = rb_funcall(v_ccache, rb_intern("principal"), 0);
   }
 
   user = StringValueCStr(v_principal);
@@ -166,17 +171,7 @@ static VALUE rkadm5_initialize(int argc, VALUE* argv, VALUE self){
 
   // Initialize or borrow the context
   if(!NIL_P(v_context)){
-    RUBY_KRB5_CONTEXT* ctx_ptr;
-
-    if(!rb_obj_is_kind_of(v_context, cKrb5Context))
-      rb_raise(rb_eTypeError, "context must be a Kerberos::Krb5::Context object");
-
-    TypedData_Get_Struct(v_context, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ctx_ptr);
-
-    if(!ctx_ptr->ctx)
-      rb_raise(cKrb5Exception, "context is closed");
-
-    ptr->ctx = ctx_ptr->ctx;
+    ptr->ctx = rkrb5_context_borrow(v_context);
     ptr->rb_context = v_context;
   }
   else{
@@ -239,12 +234,9 @@ static VALUE rkadm5_initialize(int argc, VALUE* argv, VALUE self){
   else if(RTEST(v_ccache)){
     RUBY_KRB5_CCACHE* cc_ptr;
 
-    if(!rb_obj_is_kind_of(v_ccache, cKrb5CCache))
-      rb_raise(rb_eTypeError, "ccache must be a Kerberos::Krb5::CredentialsCache object");
-
     TypedData_Get_Struct(v_ccache, RUBY_KRB5_CCACHE, &rkrb5_ccache_data_type, cc_ptr);
 
-    if(!cc_ptr->ccache)
+    if(!cc_ptr->ctx || !cc_ptr->ccache)
       rb_raise(cKrb5Exception, "credentials cache is closed or destroyed");
 
     kerror = kadm5_init_with_creds(
@@ -289,8 +281,7 @@ static VALUE rkadm5_set_password(VALUE self, VALUE v_user, VALUE v_pass){
   user = StringValueCStr(v_user);
   pass = StringValueCStr(v_pass);
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
   if(ptr->princ){
     krb5_free_principal(ptr->ctx, ptr->princ);
@@ -327,8 +318,7 @@ static VALUE rkadm5_set_pwexpire(VALUE self, VALUE v_user, VALUE v_pwexpire){
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
   if(ptr->princ){
     krb5_free_principal(ptr->ctx, ptr->princ);
@@ -398,6 +388,8 @@ static VALUE rkadm5_create_principal(int argc, VALUE* argv, VALUE self){
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
 
+  rkadm5_check_open(ptr);
+
   rb_scan_args(argc, argv, "0:", &v_opts);
 
   if(NIL_P(v_opts))
@@ -428,9 +420,6 @@ static VALUE rkadm5_create_principal(int argc, VALUE* argv, VALUE self){
   db_args = parse_db_args(v_db_args);
   add_db_args(&princ, db_args);
   free_db_args(db_args);
-
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
 
   // Determine the principal name and populate mask from the principal object
   if(RTEST(v_principal)){
@@ -536,8 +525,7 @@ static VALUE rkadm5_delete_principal(VALUE self, VALUE v_user){
   Check_Type(v_user, T_STRING);
   user = StringValueCStr(v_user);
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
   if(ptr->princ){
     krb5_free_principal(ptr->ctx, ptr->princ);
@@ -579,6 +567,8 @@ static VALUE rkadm5_close(VALUE self){
 
   if(ptr->ctx && ptr->rb_context == Qnil)
     krb5_free_context(ptr->ctx);
+  else if(ptr->rb_context != Qnil)
+    rkrb5_context_release(ptr->rb_context);
 
   free_db_args(ptr->db_args);
 
@@ -674,8 +664,7 @@ static VALUE rkadm5_find_principal(VALUE self, VALUE v_user){
 
   memset(&ent, 0, sizeof(ent));
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
   if(ptr->princ){
     krb5_free_principal(ptr->ctx, ptr->princ);
@@ -735,8 +724,7 @@ static VALUE rkadm5_get_principal(VALUE self, VALUE v_user){
 
   memset(&ent, 0, sizeof(ent));
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
   if(ptr->princ){
     krb5_free_principal(ptr->ctx, ptr->princ);
@@ -793,6 +781,8 @@ static VALUE rkadm5_create_policy(int argc, VALUE* argv, VALUE self){
   VALUE v_name, v_min_classes, v_min_life, v_max_life, v_min_length, v_history_num;
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
+
+  rkadm5_check_open(ptr);
 
   rb_scan_args(argc, argv, "01:", &v_policy, &v_kwargs);
 
@@ -871,6 +861,8 @@ static VALUE rkadm5_delete_policy(VALUE self, VALUE v_policy){
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
 
+  rkadm5_check_open(ptr);
+
   policy = StringValueCStr(v_policy);
 
   kerror = kadm5_delete_policy(ptr->handle, policy);
@@ -901,8 +893,7 @@ static VALUE rkadm5_get_policy(VALUE self, VALUE v_name){
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
   memset(&ent, 0, sizeof(ent));
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
   policy_name = StringValueCStr(v_name);
 
@@ -955,8 +946,7 @@ static VALUE rkadm5_find_policy(VALUE self, VALUE v_name){
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
   memset(&ent, 0, sizeof(ent));
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
   policy_name = StringValueCStr(v_name);
 
@@ -1001,34 +991,59 @@ static VALUE rkadm5_find_policy(VALUE self, VALUE v_name){
  * Example:
  *
  *   policy = Kerberos::Kadm5::Policy.find('test')
- *   policy.max_length = 1024
+ *   policy.max_life = 1024
  *   kadm5.modify_policy(policy)
  */
 static VALUE rkadm5_modify_policy(VALUE self, VALUE v_policy){
   RUBY_KADM5* ptr;
-  RUBY_KADM5_POLICY* pptr;
   kadm5_ret_t kerror;
-  long mask = KADM5_POLICY;
+  kadm5_policy_ent_rec ent;
+  long mask = 0;
+  VALUE v_name, v_min_classes, v_min_life, v_max_life, v_min_length, v_history_num;
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
-  TypedData_Get_Struct(v_policy, RUBY_KADM5_POLICY, &rkadm5_policy_data_type, pptr);
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
-  if(pptr->policy.pw_min_classes)
+  if(!rb_obj_is_kind_of(v_policy, cKadm5Policy))
+    rb_raise(rb_eTypeError, "expected a Kerberos::Kadm5::Policy object");
+
+  v_name        = rb_iv_get(v_policy, "@policy");
+  v_min_classes = rb_iv_get(v_policy, "@min_classes");
+  v_min_length  = rb_iv_get(v_policy, "@min_length");
+  v_min_life    = rb_iv_get(v_policy, "@min_life");
+  v_max_life    = rb_iv_get(v_policy, "@max_life");
+  v_history_num = rb_iv_get(v_policy, "@history_num");
+
+  memset(&ent, 0, sizeof(ent));
+  ent.policy = StringValueCStr(v_name);
+
+  if(!NIL_P(v_min_classes)){
     mask |= KADM5_PW_MIN_CLASSES;
+    ent.pw_min_classes = NUM2LONG(v_min_classes);
+  }
 
-  if(pptr->policy.pw_min_length)
+  if(!NIL_P(v_min_length)){
     mask |= KADM5_PW_MIN_LENGTH;
+    ent.pw_min_length = NUM2LONG(v_min_length);
+  }
 
-  if(pptr->policy.pw_min_life)
+  if(!NIL_P(v_min_life)){
     mask |= KADM5_PW_MIN_LIFE;
+    ent.pw_min_life = NUM2LONG(v_min_life);
+  }
 
-  if(pptr->policy.pw_max_life)
+  if(!NIL_P(v_max_life)){
     mask |= KADM5_PW_MAX_LIFE;
+    ent.pw_max_life = NUM2LONG(v_max_life);
+  }
 
-  kerror = kadm5_modify_policy(ptr->handle, &pptr->policy, mask);
+  if(!NIL_P(v_history_num)){
+    mask |= KADM5_PW_HISTORY_NUM;
+    ent.pw_history_num = NUM2LONG(v_history_num);
+  }
+
+  kerror = kadm5_modify_policy(ptr->handle, &ent, mask);
 
   if(kerror)
     rb_raise(cKadm5Exception, "kadm5_modify_policy: %s (%li)", error_message(kerror), kerror);
@@ -1058,6 +1073,8 @@ static VALUE rkadm5_get_policies(int argc, VALUE* argv, VALUE self){
   int i, count;
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
+
+  rkadm5_check_open(ptr);
 
   rb_scan_args(argc, argv, "01", &v_expr);
 
@@ -1107,6 +1124,8 @@ static VALUE rkadm5_get_principals(int argc, VALUE* argv, VALUE self){
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
 
+  rkadm5_check_open(ptr);
+
   rb_scan_args(argc, argv, "01", &v_expr);
 
   if(NIL_P(v_expr))
@@ -1155,6 +1174,8 @@ static VALUE rkadm5_get_privs(int argc, VALUE* argv, VALUE self){
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
 
+  rkadm5_check_open(ptr);
+
   rb_scan_args(argc, argv, "01", &v_strings);
 
   kerror = kadm5_get_privs(ptr->handle, &privs);
@@ -1200,8 +1221,7 @@ static VALUE rkadm5_randkey_principal(VALUE self, VALUE v_user){
 
   user = StringValueCStr(v_user);
 
-  if(!ptr->ctx)
-    rb_raise(cKadm5Exception, "no context has been established");
+  rkadm5_check_open(ptr);
 
   kerror = krb5_parse_name(ptr->ctx, user, &princ);
 
@@ -1240,10 +1260,13 @@ char** parse_db_args(VALUE v_db_args){
     case T_ARRAY:
       // Multiple arguments
       array_length = RARRAY_LEN(v_db_args);
+
+      for(long i = 0; i < array_length; ++i)
+        Check_Type(rb_ary_entry(v_db_args, i), T_STRING);
+
       db_args = (char **) malloc((array_length + 1) * sizeof(char *));
       for(long i = 0; i < array_length; ++i){
         VALUE elem = rb_ary_entry(v_db_args, i);
-        Check_Type(elem, T_STRING);
         db_args[i] = strdup(StringValueCStr(elem));
       }
       db_args[array_length] = NULL;

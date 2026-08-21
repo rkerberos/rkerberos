@@ -36,6 +36,17 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
 
   subject(:keytab) { described_class.new }
 
+  def write_keytab_with_invalid_second_record(destination)
+    data = File.binread(@keytab_file)
+    first_record_size = data.byteslice(2, 4).unpack1('N')
+    second_record_offset = 6 + first_record_size
+
+    # INT32_MIN is reserved as an invalid record size by the FILE keytab
+    # implementation, so iteration must fail after yielding the first entry.
+    data[second_record_offset, 4] = [0x80000000].pack('N')
+    File.binwrite(destination, data)
+  end
+
   describe 'constructor' do
     it 'accepts an optional name keyword' do
       expect { described_class.new(name: "FILE:/usr/local/var/keytab") }.not_to raise_error
@@ -50,7 +61,10 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
 
     it 'accepts a context keyword argument' do
       ctx = Kerberos::Krb5::Context.new
-      expect { described_class.new(name: @keytab_name, context: ctx) }.not_to raise_error
+      keytab = described_class.new(name: @keytab_name, context: ctx)
+      expect { ctx.close }.to raise_error(Kerberos::Krb5::Exception, /dependent wrapper/)
+      keytab.close
+      expect { ctx.close }.not_to raise_error
     end
 
     it 'works with context and no name' do
@@ -123,6 +137,15 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
       kt = nil
       GC.start
     end
+
+    it 'raises from every operation that requires the closed handle' do
+      kt = described_class.new(name: @keytab_name)
+      kt.close
+
+      expect { kt.default_name }.to raise_error(Kerberos::Krb5::Exception)
+      expect { kt.each { |_| } }.to raise_error(Kerberos::Krb5::Exception)
+      expect { kt.get_entry("testuser1@#{@realm}") }.to raise_error(Kerberos::Krb5::Exception)
+    end
   end
 
   describe '.foreach' do
@@ -155,6 +178,19 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
       expect {
         described_class.foreach("FILE:/no/such/keytab") { |_| }
       }.to raise_error(Kerberos::Krb5::Exception)
+    end
+
+    it 'raises when an error interrupts iteration' do
+      corrupt_keytab = File.join(Dir.tmpdir, "invalid-foreach-#{Process.pid}.keytab")
+      write_keytab_with_invalid_second_record(corrupt_keytab)
+      entries = []
+
+      expect {
+        described_class.foreach("FILE:#{corrupt_keytab}") { |entry| entries << entry }
+      }.to raise_error(Kerberos::Krb5::Exception, /krb5_kt_next_entry/)
+      expect(entries).not_to be_empty
+    ensure
+      FileUtils.rm_f(corrupt_keytab)
     end
 
     it 'raises an error for an invalid keytab type' do
@@ -207,6 +243,21 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
         :completed
       end
       expect(result).to eq(:escaped)
+    end
+
+    it 'raises instead of returning a partial result after an iteration error' do
+      corrupt_keytab = File.join(Dir.tmpdir, "invalid-each-#{Process.pid}.keytab")
+      write_keytab_with_invalid_second_record(corrupt_keytab)
+      entries = []
+      kt = described_class.new(name: "FILE:#{corrupt_keytab}")
+
+      expect {
+        kt.each { |entry| entries << entry }
+      }.to raise_error(Kerberos::Krb5::Exception, /krb5_kt_next_entry/)
+      expect(entries).not_to be_empty
+    ensure
+      kt&.close
+      FileUtils.rm_f(corrupt_keytab)
     end
   end
 

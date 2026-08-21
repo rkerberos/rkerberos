@@ -18,7 +18,12 @@ puts krb.get_permitted_enctypes.keys.join(',')
 
 # Credentials cache
 cc = Kerberos::Krb5::CredentialsCache.new
-krb.verify_init_creds(ccache: cc)
+krb.get_init_creds_password(
+  principal: ENV['KRB5_PRINCIPAL'],
+  password: ENV['KRB5_PASSWORD'],
+  ccache: cc
+)
+krb.verify_init_creds
 puts cc.primary_principal
 
 # Keytab
@@ -38,6 +43,13 @@ ctx = Kerberos::Krb5::Context.new # standard context
 ctx = Kerberos::Krb5::Context.new(profile: '/etc/krb5.conf') # or use a profile
 ctx = Kerberos::Krb5::Context.new(secure: true) # or use a secure context
 ctx.close
+
+# Contexts with active dependent wrappers reject close. A forced close stops
+# direct context use immediately and defers native cleanup until dependents close.
+ctx = Kerberos::Krb5::Context.new
+krb = Kerberos::Krb5.new(context: ctx)
+ctx.close(force: true)
+krb.close
 ```
 
 # Requirements
@@ -160,7 +172,6 @@ The test environment includes:
 # TODO
 * Create a separate class for the replay cache.
 * Better credentials cache support.
-* Ability to add and delete keytab entries.
 
 # Authors
 * Daniel Berger

@@ -16,6 +16,51 @@ RSpec.describe Kerberos::Krb5::Context do
     it 'can be called multiple times without error' do
       expect { 3.times { context.close } }.not_to raise_error
     end
+
+    it 'raises while a dependent wrapper remains open' do
+      krb5 = Kerberos::Krb5.new(context: context)
+
+      expect { context.close }
+        .to raise_error(Kerberos::Krb5::Exception, /1 dependent wrapper/)
+      expect(context.default_realm).to be_a(String)
+
+      krb5.close
+      expect { context.close }.not_to raise_error
+    end
+
+    it 'tracks multiple dependent wrappers independently' do
+      first = Kerberos::Krb5.new(context: context)
+      second = Kerberos::Krb5::Principal.new(name: 'user', context: context)
+
+      expect { context.close }
+        .to raise_error(Kerberos::Krb5::Exception, /2 dependent wrappers/)
+
+      first.close
+      expect { context.close }
+        .to raise_error(Kerberos::Krb5::Exception, /1 dependent wrapper/)
+
+      second.close
+      expect { context.close }.not_to raise_error
+    end
+
+    it 'supports a forced logical close with deferred native cleanup' do
+      krb5 = Kerberos::Krb5.new(context: context)
+      realm = krb5.default_realm
+
+      expect(context.close(force: true)).to equal(context)
+      expect { context.default_realm }.to raise_error(Kerberos::Krb5::Exception)
+      expect { Kerberos::Krb5.new(context: context) }
+        .to raise_error(Kerberos::Krb5::Exception, /context is closed/)
+      expect(krb5.default_realm).to eq(realm)
+
+      expect { krb5.close }.not_to raise_error
+      expect { context.close }.not_to raise_error
+    end
+
+    it 'requires close options to be keywords and rejects unknown keywords' do
+      expect { context.close({force: true}) }.to raise_error(ArgumentError)
+      expect { context.close(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
+    end
   end
 
   describe 'constructor options' do

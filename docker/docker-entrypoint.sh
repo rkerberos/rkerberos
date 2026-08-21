@@ -13,8 +13,15 @@ for p in testuser1 zztop martymcfly; do
   kadmin.local -q "addprinc -pw changeme ${p}@EXAMPLE.COM" 2>/dev/null || \
     kadmin.local -q "cpw -pw changeme ${p}@EXAMPLE.COM"
 
-  # Attempt to add keys to the system keytab; ignore errors caused by volume mounts.
-  kadmin.local -q "ktadd -k /etc/krb5.keytab ${p}@EXAMPLE.COM" 2>/dev/null || true
+  kadmin.local -q "ktadd -k /shared-keytab/krb5.keytab ${p}@EXAMPLE.COM"
+done
+
+# Supply real verification keys for authenticate! specs. The host principal
+# exercises default verification; the verify service exercises service-specific
+# initial credentials without weakening AP-REQ verification.
+for p in host/rkerberos-test verify/rkerberos-test; do
+  kadmin.local -q "addprinc -randkey ${p}@EXAMPLE.COM" 2>/dev/null || true
+  kadmin.local -q "ktadd -k /shared-keytab/krb5.keytab ${p}@EXAMPLE.COM"
 done
 
 # Create a strict password policy and a principal bound to it.

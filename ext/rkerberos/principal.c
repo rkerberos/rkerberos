@@ -18,6 +18,8 @@ static void rkrb5_princ_typed_free(void *ptr) {
     krb5_free_principal(p->ctx, p->principal);
   if (p->ctx && p->rb_context == Qnil)
     krb5_free_context(p->ctx);
+  else if (p->rb_context != Qnil)
+    rkrb5_context_release(p->rb_context);
   free(p);
 }
 
@@ -86,17 +88,7 @@ static VALUE rkrb5_princ_initialize(int argc, VALUE* argv, VALUE self){
 
   // Initialize or borrow the context
   if(!NIL_P(v_context)){
-    RUBY_KRB5_CONTEXT* ctx_ptr;
-
-    if(!rb_obj_is_kind_of(v_context, cKrb5Context))
-      rb_raise(rb_eTypeError, "context must be a Kerberos::Krb5::Context object");
-
-    TypedData_Get_Struct(v_context, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ctx_ptr);
-
-    if(!ctx_ptr->ctx)
-      rb_raise(cKrb5Exception, "context is closed");
-
-    ptr->ctx = ctx_ptr->ctx;
+    ptr->ctx = rkrb5_context_borrow(v_context);
     ptr->rb_context = v_context;
   }
   else{
@@ -147,19 +139,52 @@ static VALUE rkrb5_princ_initialize(int argc, VALUE* argv, VALUE self){
 
 /*
  * call-seq:
+ *   principal.close
+ *
+ * Releases the principal and its Kerberos context lease. Once closed, the
+ * principal cannot be reused.
+ */
+static VALUE rkrb5_princ_close(VALUE self){
+  RUBY_KRB5_PRINC* ptr;
+
+  TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &rkrb5_princ_data_type, ptr);
+
+  if(!ptr->ctx)
+    return self;
+
+  if(ptr->principal)
+    krb5_free_principal(ptr->ctx, ptr->principal);
+
+  if(ptr->rb_context == Qnil)
+    krb5_free_context(ptr->ctx);
+  else
+    rkrb5_context_release(ptr->rb_context);
+
+  ptr->ctx = NULL;
+  ptr->principal = NULL;
+  ptr->rb_context = Qnil;
+
+  return self;
+}
+
+/*
+ * call-seq:
  *   principal.realm
  *
  * Returns the realm for the given principal.
  */
 static VALUE rkrb5_princ_get_realm(VALUE self){
   RUBY_KRB5_PRINC* ptr;
+  krb5_data* realm;
 
   TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &rkrb5_princ_data_type, ptr);
 
   if(!ptr->principal)
     rb_raise(cKrb5Exception, "no principal has been established");
 
-  return rb_str_new2(krb5_princ_realm(ptr->ctx, ptr->principal)->data);
+  realm = krb5_princ_realm(ptr->ctx, ptr->principal);
+
+  return rb_str_new(realm->data, realm->length);
 }
 
 /*
@@ -195,6 +220,10 @@ static VALUE rkrb5_princ_equal(VALUE self, VALUE v_other){
   VALUE v_bool = Qfalse;
 
   TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &rkrb5_princ_data_type, ptr1);
+
+  if(!rb_obj_is_kind_of(v_other, cKrb5Principal))
+    return Qfalse;
+
   TypedData_Get_Struct(v_other, RUBY_KRB5_PRINC, &rkrb5_princ_data_type, ptr2);
 
   if(!ptr1->principal || !ptr2->principal)
@@ -349,6 +378,7 @@ void Init_principal(void){
   rb_define_method(cKrb5Principal, "==", rkrb5_princ_equal, 1);
   rb_define_method(cKrb5Principal, "principal_type", rkrb5_princ_get_type, 0);
   rb_define_method(cKrb5Principal, "components", rkrb5_princ_components, 0);
+  rb_define_method(cKrb5Principal, "close", rkrb5_princ_close, 0);
 
   // Attributes
 

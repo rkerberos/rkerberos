@@ -20,6 +20,8 @@ static void rkrb5_ccache_typed_free(void *ptr) {
     krb5_free_principal(c->ctx, c->principal);
   if (c->ctx && c->rb_context == Qnil)
     krb5_free_context(c->ctx);
+  else if (c->rb_context != Qnil)
+    rkrb5_context_release(c->rb_context);
   free(c);
 }
 
@@ -91,17 +93,7 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
 
   // Initialize or borrow the context
   if(!NIL_P(v_context)){
-    RUBY_KRB5_CONTEXT* ctx_ptr;
-
-    if(!rb_obj_is_kind_of(v_context, cKrb5Context))
-      rb_raise(rb_eTypeError, "context must be a Kerberos::Krb5::Context object");
-
-    TypedData_Get_Struct(v_context, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ctx_ptr);
-
-    if(!ctx_ptr->ctx)
-      rb_raise(cKrb5Exception, "context is closed");
-
-    ptr->ctx = ctx_ptr->ctx;
+    ptr->ctx = rkrb5_context_borrow(v_context);
     ptr->rb_context = v_context;
   }
   else{
@@ -176,6 +168,8 @@ static VALUE rkrb5_ccache_close(VALUE self){
 
   if(ptr->ctx && ptr->rb_context == Qnil)
     krb5_free_context(ptr->ctx);
+  else if(ptr->rb_context != Qnil)
+    rkrb5_context_release(ptr->rb_context);
 
   ptr->ccache = NULL;
   ptr->ctx = NULL;
@@ -309,6 +303,8 @@ static VALUE rkrb5_ccache_destroy(VALUE self){
 
       if(ptr->ctx && ptr->rb_context == Qnil)
         krb5_free_context(ptr->ctx);
+      else if(ptr->rb_context != Qnil)
+        rkrb5_context_release(ptr->rb_context);
 
       ptr->ccache = NULL;
       ptr->ctx = NULL;
@@ -324,6 +320,8 @@ static VALUE rkrb5_ccache_destroy(VALUE self){
 
   if(ptr->ctx && ptr->rb_context == Qnil)
     krb5_free_context(ptr->ctx);
+  else if(ptr->rb_context != Qnil)
+    rkrb5_context_release(ptr->rb_context);
 
   ptr->ccache = NULL;
   ptr->ctx = NULL;

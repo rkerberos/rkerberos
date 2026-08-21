@@ -49,6 +49,10 @@ void Init_ccache();
 // Defined in rkerberos.c
 VALUE rb_hash_aref2(VALUE, VALUE);
 
+// Defined in context.c
+krb5_context rkrb5_context_borrow(VALUE);
+void rkrb5_context_release(VALUE);
+
 // Variable declarations
 extern VALUE mKerberos;
 extern VALUE cKrb5;
@@ -76,6 +80,8 @@ typedef struct {
 typedef struct {
   krb5_context ctx;
   krb5_enctype etypes;
+  size_t borrowers;
+  int closed;
 } RUBY_KRB5_CONTEXT;
 
 // Kerberos::Kadm5

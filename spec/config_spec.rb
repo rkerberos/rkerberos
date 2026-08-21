@@ -28,6 +28,14 @@ RSpec.describe 'Kerberos::Kadm5::Config', :kadm5 do
       expect(c2.realm).to eq(c1.realm)
     end
 
+    it 'releases its context lease after copying the configuration' do
+      ctx = Kerberos::Krb5::Context.new
+      config = klass.new(context: ctx)
+
+      expect { ctx.close }.not_to raise_error
+      expect(config.realm).to be_a(String)
+    end
+
     it 'raises TypeError for non-Context context argument' do
       expect { klass.new(context: "bad") }.to raise_error(TypeError)
     end
