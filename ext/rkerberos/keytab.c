@@ -20,6 +20,8 @@ void rkrb5_keytab_typed_free(void *ptr) {
     krb5_free_cred_contents(kt->ctx, &kt->creds);
   if (kt->ctx && kt->rb_context == Qnil)
     krb5_free_context(kt->ctx);
+  else if (kt->rb_context != Qnil)
+    rkrb5_context_release(kt->rb_context);
   free(kt);
 }
 
@@ -183,6 +185,8 @@ static VALUE rkrb5_keytab_close(VALUE self){
 
   if(ptr->ctx && ptr->rb_context == Qnil)
     krb5_free_context(ptr->ctx);
+  else if(ptr->rb_context != Qnil)
+    rkrb5_context_release(ptr->rb_context);
 
   ptr->ctx = NULL;
   ptr->rb_context = Qnil;
@@ -569,17 +573,7 @@ static VALUE rkrb5_keytab_initialize(int argc, VALUE* argv, VALUE self){
 
   // Initialize or borrow the context
   if(!NIL_P(v_context)){
-    RUBY_KRB5_CONTEXT* ctx_ptr;
-
-    if(!rb_obj_is_kind_of(v_context, cKrb5Context))
-      rb_raise(rb_eTypeError, "context must be a Kerberos::Krb5::Context object");
-
-    TypedData_Get_Struct(v_context, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ctx_ptr);
-
-    if(!ctx_ptr->ctx)
-      rb_raise(cKrb5Exception, "context is closed");
-
-    ptr->ctx = ctx_ptr->ctx;
+    ptr->ctx = rkrb5_context_borrow(v_context);
     ptr->rb_context = v_context;
   }
   else{

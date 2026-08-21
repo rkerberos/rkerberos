@@ -76,7 +76,10 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
 
     it 'accepts a context keyword argument' do
       ctx = Kerberos::Krb5::Context.new
-      expect { subject.new(principal: user, password: pass, context: ctx) }.not_to raise_error
+      kadm5 = subject.new(principal: user, password: pass, context: ctx)
+      expect { ctx.close }.to raise_error(Kerberos::Krb5::Exception, /dependent wrapper/)
+      kadm5.close
+      expect { ctx.close }.not_to raise_error
     end
 
     it 'raises TypeError for non-Context context argument' do

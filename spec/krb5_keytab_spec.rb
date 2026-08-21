@@ -50,7 +50,10 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
 
     it 'accepts a context keyword argument' do
       ctx = Kerberos::Krb5::Context.new
-      expect { described_class.new(name: @keytab_name, context: ctx) }.not_to raise_error
+      keytab = described_class.new(name: @keytab_name, context: ctx)
+      expect { ctx.close }.to raise_error(Kerberos::Krb5::Exception, /dependent wrapper/)
+      keytab.close
+      expect { ctx.close }.not_to raise_error
     end
 
     it 'works with context and no name' do

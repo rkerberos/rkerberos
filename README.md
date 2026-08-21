@@ -43,6 +43,13 @@ ctx = Kerberos::Krb5::Context.new # standard context
 ctx = Kerberos::Krb5::Context.new(profile: '/etc/krb5.conf') # or use a profile
 ctx = Kerberos::Krb5::Context.new(secure: true) # or use a secure context
 ctx.close
+
+# Contexts with active dependent wrappers reject close. A forced close stops
+# direct context use immediately and defers native cleanup until dependents close.
+ctx = Kerberos::Krb5::Context.new
+krb = Kerberos::Krb5.new(context: ctx)
+ctx.close(force: true)
+krb.close
 ```
 
 # Requirements

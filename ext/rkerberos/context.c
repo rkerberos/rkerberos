@@ -15,6 +15,38 @@ static void rkrb5_context_typed_free(void *ptr) {
   free(c);
 }
 
+krb5_context rkrb5_context_borrow(VALUE v_context){
+  RUBY_KRB5_CONTEXT* ptr;
+
+  if(!rb_obj_is_kind_of(v_context, cKrb5Context))
+    rb_raise(rb_eTypeError, "context must be a Kerberos::Krb5::Context object");
+
+  TypedData_Get_Struct(v_context, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ptr);
+
+  if(!ptr->ctx || ptr->closed)
+    rb_raise(cKrb5Exception, "context is closed");
+
+  ptr->borrowers++;
+  return ptr->ctx;
+}
+
+void rkrb5_context_release(VALUE v_context){
+  RUBY_KRB5_CONTEXT* ptr;
+
+  if(NIL_P(v_context))
+    return;
+
+  ptr = (RUBY_KRB5_CONTEXT*)RTYPEDDATA_DATA(v_context);
+
+  if(ptr->borrowers > 0)
+    ptr->borrowers--;
+
+  if(ptr->closed && ptr->borrowers == 0 && ptr->ctx){
+    krb5_free_context(ptr->ctx);
+    ptr->ctx = NULL;
+  }
+}
+
 static size_t rkrb5_context_typed_size(const void *ptr) {
   return sizeof(RUBY_KRB5_CONTEXT);
 }
@@ -34,19 +66,42 @@ static VALUE rkrb5_context_allocate(VALUE klass){
 
 /*
  * call-seq:
- *   context.close
+ *   context.close(force: false)
  *
- * Closes the context object.
+ * Closes the context object. Raises if wrappers are still borrowing the
+ * context. With +force: true+, the context is closed to new operations and
+ * borrowers immediately, but its native resources are retained until the
+ * existing borrowers have closed.
  */
-static VALUE rkrb5_context_close(VALUE self){
+static VALUE rkrb5_context_close(int argc, VALUE* argv, VALUE self){
   RUBY_KRB5_CONTEXT* ptr;
+  VALUE v_opts, v_force;
+  ID kw_table[1] = { rb_intern("force") };
+  VALUE kw_vals[1];
 
   TypedData_Get_Struct(self, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ptr);
 
-  if(ptr->ctx)
-    krb5_free_context(ptr->ctx);
+  rb_scan_args(argc, argv, "0:", &v_opts);
 
-  ptr->ctx = NULL;
+  if(NIL_P(v_opts))
+    v_opts = rb_hash_new();
+
+  rb_get_kwargs(v_opts, kw_table, 0, 1, kw_vals);
+  v_force = kw_vals[0] == Qundef ? Qfalse : kw_vals[0];
+
+  if(ptr->closed || !ptr->ctx)
+    return self;
+
+  if(ptr->borrowers > 0 && !RTEST(v_force))
+    rb_raise(cKrb5Exception, "context is in use by %lu dependent wrapper%s",
+      (unsigned long)ptr->borrowers, ptr->borrowers == 1 ? "" : "s");
+
+  ptr->closed = 1;
+
+  if(ptr->borrowers == 0){
+    krb5_free_context(ptr->ctx);
+    ptr->ctx = NULL;
+  }
 
   return self;
 }
@@ -147,7 +202,7 @@ static VALUE rkrb5_context_default_realm(VALUE self){
 
   TypedData_Get_Struct(self, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ptr);
 
-  if(!ptr->ctx)
+  if(!ptr->ctx || ptr->closed)
     rb_raise(cKrb5Exception, "no context has been established");
 
   kerror = krb5_get_default_realm(ptr->ctx, &realm);
@@ -175,7 +230,7 @@ static VALUE rkrb5_context_set_default_realm(VALUE self, VALUE v_realm){
 
   TypedData_Get_Struct(self, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ptr);
 
-  if(!ptr->ctx)
+  if(!ptr->ctx || ptr->closed)
     rb_raise(cKrb5Exception, "no context has been established");
 
   if(NIL_P(v_realm)){
@@ -205,7 +260,7 @@ void Init_context(void){
   rb_define_method(cKrb5Context, "initialize", rkrb5_context_initialize, -1);
 
   // Instance Methods
-  rb_define_method(cKrb5Context, "close", rkrb5_context_close, 0);
+  rb_define_method(cKrb5Context, "close", rkrb5_context_close, -1);
   rb_define_method(cKrb5Context, "default_realm", rkrb5_context_default_realm, 0);
   rb_define_method(cKrb5Context, "default_realm=", rkrb5_context_set_default_realm, 1);
 }

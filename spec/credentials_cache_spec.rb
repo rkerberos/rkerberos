@@ -73,6 +73,9 @@ RSpec.describe Kerberos::Krb5::CredentialsCache do
       ctx = Kerberos::Krb5::Context.new
       c = described_class.new(principal: princ, context: ctx)
       expect(c.primary_principal).to eq(princ)
+      expect { ctx.close }.to raise_error(Kerberos::Krb5::Exception, /dependent wrapper/)
+      c.close
+      expect { ctx.close }.not_to raise_error
     end
 
     it 'raises TypeError for non-Context context argument' do

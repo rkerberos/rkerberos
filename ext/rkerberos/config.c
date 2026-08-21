@@ -4,6 +4,22 @@
 VALUE cKadm5Config;
 VALUE cKeySalt;
 
+static void rkadm5_config_cleanup(RUBY_KADM5_CONFIG *ptr){
+  if(!ptr->ctx)
+    return;
+
+  kadm5_free_config_params(ptr->ctx, &ptr->config);
+
+  if(ptr->rb_context == Qnil)
+    krb5_free_context(ptr->ctx);
+  else
+    rkrb5_context_release(ptr->rb_context);
+
+  ptr->ctx = NULL;
+  ptr->rb_context = Qnil;
+  memset(&ptr->config, 0, sizeof(ptr->config));
+}
+
 
 // TypedData functions for RUBY_KADM5_CONFIG
 static void rkadm5_config_typed_mark(void *ptr) {
@@ -16,11 +32,7 @@ static void rkadm5_config_typed_mark(void *ptr) {
 static void rkadm5_config_typed_free(void *ptr) {
   if (!ptr) return;
   RUBY_KADM5_CONFIG *c = (RUBY_KADM5_CONFIG *)ptr;
-  if (c->ctx) {
-    kadm5_free_config_params(c->ctx, &c->config);
-    if (c->rb_context == Qnil)
-      krb5_free_context(c->ctx);
-  }
+  rkadm5_config_cleanup(c);
   free(c);
 }
 
@@ -85,17 +97,7 @@ static VALUE rkadm5_config_initialize(int argc, VALUE* argv, VALUE self){
   v_context = kw_vals[0] == Qundef ? Qnil : kw_vals[0];
 
   if(!NIL_P(v_context)){
-    RUBY_KRB5_CONTEXT* ctx_ptr;
-
-    if(!rb_obj_is_kind_of(v_context, cKrb5Context))
-      rb_raise(rb_eTypeError, "context must be a Kerberos::Krb5::Context object");
-
-    TypedData_Get_Struct(v_context, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ctx_ptr);
-
-    if(!ctx_ptr->ctx)
-      rb_raise(cKrb5Exception, "context is closed");
-
-    ptr->ctx = ctx_ptr->ctx;
+    ptr->ctx = rkrb5_context_borrow(v_context);
     ptr->rb_context = v_context;
   }
   else{
@@ -233,6 +235,10 @@ static VALUE rkadm5_config_initialize(int argc, VALUE* argv, VALUE self){
   }else{
     rb_iv_set(self, "@keysalts", Qnil);
   }
+
+  // All configuration data has been copied into Ruby values, so this object
+  // no longer needs to retain its native context lease.
+  rkadm5_config_cleanup(ptr);
 
   // This is read only data
   rb_obj_freeze(self);

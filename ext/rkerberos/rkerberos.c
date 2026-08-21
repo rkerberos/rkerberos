@@ -43,6 +43,8 @@ static void rkrb5_typed_free(void *ptr) {
     krb5_free_principal(r->ctx, r->princ);
   if (r->ctx && r->rb_context == Qnil)
     krb5_free_context(r->ctx);
+  else if (r->rb_context != Qnil)
+    rkrb5_context_release(r->rb_context);
   free(r);
 }
 
@@ -74,8 +76,8 @@ static VALUE rkrb5_allocate(VALUE klass){
  * If a +context+ keyword argument is provided, it must be a
  * Kerberos::Krb5::Context object. The context will be borrowed rather than
  * creating a new one internally via krb5_init_context. The caller is
- * responsible for keeping the Context object alive for the lifetime of
- * this Krb5 instance.
+ * retained for the lifetime of this Krb5 instance. The Context cannot be
+ * closed normally until this object has been closed.
  *
  * A block form is also supported. If a block is given, the object is
  * yielded to the block and automatically closed when the block returns.
@@ -98,17 +100,7 @@ static VALUE rkrb5_initialize(int argc, VALUE* argv, VALUE self){
   v_context = kw_vals[0] == Qundef ? Qnil : kw_vals[0];
 
   if(!NIL_P(v_context)){
-    RUBY_KRB5_CONTEXT* ctx_ptr;
-
-    if(!rb_obj_is_kind_of(v_context, cKrb5Context))
-      rb_raise(rb_eTypeError, "context must be a Kerberos::Krb5::Context object");
-
-    TypedData_Get_Struct(v_context, RUBY_KRB5_CONTEXT, &rkrb5_context_data_type, ctx_ptr);
-
-    if(!ctx_ptr->ctx)
-      rb_raise(cKrb5Exception, "context is closed");
-
-    ptr->ctx = ctx_ptr->ctx;
+    ptr->ctx = rkrb5_context_borrow(v_context);
     ptr->rb_context = v_context;
   }
   else{
@@ -687,6 +679,8 @@ static VALUE rkrb5_close(VALUE self){
 
   if(ptr->ctx && ptr->rb_context == Qnil)
     krb5_free_context(ptr->ctx);
+  else if(ptr->rb_context != Qnil)
+    rkrb5_context_release(ptr->rb_context);
 
   ptr->ctx = NULL;
   ptr->princ = NULL;

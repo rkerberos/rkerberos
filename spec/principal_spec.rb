@@ -63,6 +63,21 @@ RSpec.describe Kerberos::Krb5::Principal do
     end
   end
 
+  describe '#close' do
+    it 'releases a borrowed context and prevents further native operations' do
+      context = Kerberos::Krb5::Context.new
+      principal = described_class.new(name: name, context: context)
+
+      expect(principal.close).to equal(principal)
+      expect { principal.realm }.to raise_error(Kerberos::Krb5::Exception)
+      expect { context.close }.not_to raise_error
+    end
+
+    it 'can be called multiple times' do
+      expect { 2.times { princ.close } }.not_to raise_error
+    end
+  end
+
   describe '#==' do
     it 'returns true for equivalent principals' do
       expect(princ).to eq(described_class.new(name: name))
