@@ -1,3 +1,18 @@
+# 0.3.0 - 20-Aug-2026
+* Added optional shared `Context` support to the `Krb5`, `Kadm5`, `Config`,
+  `CredentialsCache`, `Keytab`, and `Principal` constructors.
+* Breaking: standardized option-based constructors, credential acquisition,
+  verification, and principal creation on strict keyword arguments. Positional
+  option hashes and unknown keywords are rejected.
+* Added credentials cache authentication to the `Kadm5` constructor and support
+  for passing a `Principal` object to `Kadm5#create_principal`.
+* Added `Keytab#add_entry`, `Keytab#remove_entry`, and `Keytab#have_content?`.
+* Added context realm accessors, principal components and type information,
+  credential cache full names, Kerberos thread-safety detection, hostname
+  expansion, host realm lookup, and convenience aliases.
+* Added comprehensive usage examples and expanded specs for the new APIs.
+* Excluded generated artifacts from release packages.
+
 # 0.2.3 - 8-Mar-2026
 * All Kadm5 related classes are skipped if not found.
 * Several updates to the spec helper that mainly revolved around supporting

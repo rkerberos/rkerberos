@@ -32,12 +32,12 @@ static VALUE rkadm5_policy_allocate(VALUE klass){
 
 /*
  * call-seq:
- *   Kerberos::Kadm5::Policy.new(options)
+ *   Kerberos::Kadm5::Policy.new(name:, min_life: nil, max_life: nil,
+ *     min_length: nil, min_classes: nil, history_num: nil)
  *
- * Returns a new policy object using +options+ you choose to pass, where
- * the +options+ argument is a hash. This does NOT actually create the policy
- * object within Kerberos. To do that pass your Policy object to the
- * Kadm5.create_policy method.
+ * Returns a new policy object using the keyword arguments you choose to pass.
+ * This does NOT actually create the policy within Kerberos. To do that pass
+ * your Policy object to the Kadm5.create_policy method.
  *
  * The possible options are:
  *
@@ -50,32 +50,34 @@ static VALUE rkadm5_policy_allocate(VALUE klass){
  *
  * If you do not provide a :name then an ArgumentError will be raised.
  */
-static VALUE rkadm5_policy_init(VALUE self, VALUE v_options){
+static VALUE rkadm5_policy_init(int argc, VALUE* argv, VALUE self){
   RUBY_KADM5_POLICY* ptr;
+  VALUE v_options;
   VALUE v_name, v_minlife, v_maxlife, v_minlength;
   VALUE v_minclasses, v_historynum;
+  ID kw_table[6] = {
+    rb_intern("name"), rb_intern("min_life"), rb_intern("max_life"),
+    rb_intern("min_length"), rb_intern("min_classes"), rb_intern("history_num")
+  };
+  VALUE kw_vals[6];
 
   TypedData_Get_Struct(self, RUBY_KADM5_POLICY, &rkadm5_policy_data_type, ptr);
 
-  Check_Type(v_options, T_HASH);
+  rb_scan_args(argc, argv, "0:", &v_options);
 
-  if(RTEST(rb_funcall(v_options, rb_intern("empty?"), 0)))
-    rb_raise(rb_eArgError, "no policy options provided");
+  if(NIL_P(v_options))
+    v_options = rb_hash_new();
 
-  v_name       = rb_hash_aref2(v_options, rb_str_new_cstr("name"));
-  v_minlife    = rb_hash_aref2(v_options, rb_str_new_cstr("min_life"));
-  v_maxlife    = rb_hash_aref2(v_options, rb_str_new_cstr("max_life"));
-  v_minlength  = rb_hash_aref2(v_options, rb_str_new_cstr("min_length"));
-  v_minclasses = rb_hash_aref2(v_options, rb_str_new_cstr("min_classes"));
-  v_historynum = rb_hash_aref2(v_options, rb_str_new_cstr("history_num"));
+  rb_get_kwargs(v_options, kw_table, 1, 5, kw_vals);
+  v_name = kw_vals[0];
+  v_minlife = kw_vals[1] == Qundef ? Qnil : kw_vals[1];
+  v_maxlife = kw_vals[2] == Qundef ? Qnil : kw_vals[2];
+  v_minlength = kw_vals[3] == Qundef ? Qnil : kw_vals[3];
+  v_minclasses = kw_vals[4] == Qundef ? Qnil : kw_vals[4];
+  v_historynum = kw_vals[5] == Qundef ? Qnil : kw_vals[5];
 
-  if(NIL_P(v_name)){
-    rb_raise(rb_eArgError, "name policy option is mandatory");
-  }
-  else{
-    ptr->policy.policy = StringValueCStr(v_name);
-    rb_iv_set(self, "@policy", v_name);
-  }
+  ptr->policy.policy = StringValueCStr(v_name);
+  rb_iv_set(self, "@policy", v_name);
 
   if(!NIL_P(v_minlife)){
     ptr->policy.pw_min_life = NUM2LONG(v_minlife);
@@ -171,7 +173,7 @@ void Init_policy(void){
 
   // Initialization Function
 
-  rb_define_method(cKadm5Policy, "initialize", rkadm5_policy_init, 1);
+  rb_define_method(cKadm5Policy, "initialize", rkadm5_policy_init, -1);
 
   // Instance methods
 

@@ -70,18 +70,22 @@ static VALUE rkrb5_princ_initialize(int argc, VALUE* argv, VALUE self){
   VALUE v_opts = Qnil;
   VALUE v_name = Qnil;
   VALUE v_context = Qnil;
+  ID kw_table[2] = { rb_intern("name"), rb_intern("context") };
+  VALUE kw_vals[2];
 
   TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &rkrb5_princ_data_type, ptr);
 
   rb_scan_args(argc, argv, "0:", &v_opts);
 
-  if(!NIL_P(v_opts)){
-    v_name = rb_hash_aref2(v_opts, ID2SYM(rb_intern("name")));
-    v_context = rb_hash_aref2(v_opts, ID2SYM(rb_intern("context")));
-  }
+  if(NIL_P(v_opts))
+    v_opts = rb_hash_new();
+
+  rb_get_kwargs(v_opts, kw_table, 0, 2, kw_vals);
+  v_name = kw_vals[0] == Qundef ? Qnil : kw_vals[0];
+  v_context = kw_vals[1] == Qundef ? Qnil : kw_vals[1];
 
   // Initialize or borrow the context
-  if(RTEST(v_context)){
+  if(!NIL_P(v_context)){
     RUBY_KRB5_CONTEXT* ctx_ptr;
 
     if(!rb_obj_is_kind_of(v_context, cKrb5Context))

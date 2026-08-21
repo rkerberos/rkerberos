@@ -21,6 +21,10 @@ RSpec.describe 'Kerberos::Kadm5::Policy', :kadm5 do
     it 'must be present' do
       expect { klass.new(max_life: 10000) }.to raise_error(ArgumentError)
     end
+    it 'rejects positional option hashes and unknown keywords' do
+      expect { klass.new({name: 'test'}) }.to raise_error(ArgumentError)
+      expect { klass.new(name: 'test', unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
+    end
   end
 
   describe 'min_life' do

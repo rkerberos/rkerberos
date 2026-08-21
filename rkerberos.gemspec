@@ -6,11 +6,14 @@ Gem::Specification.new do |spec|
   spec.authors    = ['Daniel Berger', 'Dominic Cleal', 'Simon Levermann']
   spec.license    = 'Artistic-2.0'
   spec.email      = ['djberg96@gmail.com', 'dominic@cleal.org', 'simon-rubygems@slevermann.de']
-  spec.homepage   = 'http://github.com/rkerberos/rkerberos'
-  spec.summary    = 'A Ruby interface for the the Kerberos library'
+  spec.homepage   = 'https://github.com/rkerberos/rkerberos'
+  spec.summary    = 'A Ruby interface for the Kerberos library'
+  spec.required_ruby_version = '>= 3.2'
   spec.test_files = Dir['spec/**/*_spec.rb']
   spec.extensions = ['ext/rkerberos/extconf.rb']
-  spec.files      = Dir['**/*'].grep_v(%r{\A(?:\.git|docker|Dockerfile)|\.gem\z})
+  spec.files      = Dir['**/*']
+    .select { |file| File.file?(file) }
+    .grep_v(%r{\A(?:\.git|docker|Dockerfile|Gemfile\.lock\z|tmp(?:/|\z))|\.gem\z})
 
   spec.add_development_dependency('rake-compiler')
   spec.add_development_dependency('rspec', '>= 3.0')
@@ -22,10 +25,10 @@ Gem::Specification.new do |spec|
   EOF
 
   spec.metadata = {
-    'homepage_uri'          => 'https://github.com/rkerberos/rkerberos',
     'bug_tracker_uri'       => 'https://github.com/rkerberos/rkerberos/issues',
     'changelog_uri'         => 'https://github.com/rkerberos/rkerberos/blob/master/CHANGES.md',
     'documentation_uri'     => 'https://github.com/rkerberos/rkerberos/wiki',
+    'homepage_uri'          => 'https://github.com/rkerberos/rkerberos',
     'source_code_uri'       => 'https://github.com/rkerberos/rkerberos',
     'wiki_uri'              => 'https://github.com/rkerberos/rkerberos/wiki',
     'github_repo'           => 'https://github.com/rkerberos/rkerberos',

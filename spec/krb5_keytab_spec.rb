@@ -62,6 +62,10 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
       expect { described_class.new(@keytab_name) }.to raise_error(ArgumentError)
     end
 
+    it 'rejects unknown keywords' do
+      expect { described_class.new(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
+    end
+
     it 'raises TypeError for non-Context context argument' do
       expect { described_class.new(context: "bad") }.to raise_error(TypeError)
     end
@@ -353,6 +357,14 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
       kt.close
     end
 
+    it 'rejects unknown keywords' do
+      kt = described_class.new(name: add_kt_name)
+      expect {
+        kt.add_entry(principal: "testuser1@#{@realm}", password: 'secret', unknown: true)
+      }.to raise_error(ArgumentError, /unknown keyword/)
+      kt.close
+    end
+
     it 'raises when the keytab is closed' do
       kt = described_class.new(name: add_kt_name)
       kt.close
@@ -410,6 +422,12 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
 
     it 'raises ArgumentError with no arguments' do
       expect { @rm_kt.remove_entry }.to raise_error(ArgumentError)
+    end
+
+    it 'rejects unknown keywords' do
+      expect {
+        @rm_kt.remove_entry(principal: "testuser1@#{@realm}", unknown: true)
+      }.to raise_error(ArgumentError, /unknown keyword/)
     end
 
     it 'raises when the keytab is closed' do

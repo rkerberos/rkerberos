@@ -86,7 +86,7 @@ The `authenticate!` method acquires credentials **and** verifies them against th
 krb5 = Kerberos::Krb5.new
 
 begin
-  krb5.authenticate!('user@EXAMPLE.COM', 's3cret')
+  krb5.authenticate!(principal: 'user@EXAMPLE.COM', password: 's3cret')
   puts "Authentication successful"
 rescue Kerberos::Krb5::Exception => e
   puts "Authentication failed: #{e.message}"
@@ -327,7 +327,7 @@ cc.destroy  # => true (also aliased as cc.delete)
 krb5 = Kerberos::Krb5.new
 cc = Kerberos::Krb5::CredentialsCache.new
 
-krb5.get_init_creds_password('user@EXAMPLE.COM', 's3cret')
+krb5.get_init_creds_password(principal: 'user@EXAMPLE.COM', password: 's3cret')
 krb5.verify_init_creds(ccache: cc)
 
 puts cc.primary_principal  # => "user@EXAMPLE.COM"
@@ -618,10 +618,14 @@ end
 
 ```ruby
 Kerberos::Kadm5.new(principal: 'admin/admin', password: 'admin_pass') do |kadm5|
-  kadm5.create_principal('newuser@EXAMPLE.COM', 'initial_password')
+  kadm5.create_principal(name: 'newuser@EXAMPLE.COM', password: 'initial_password')
 
   # With database arguments
-  kadm5.create_principal('ldapuser@EXAMPLE.COM', 'password', 'tktpolicy=default')
+  kadm5.create_principal(
+    name: 'ldapuser@EXAMPLE.COM',
+    password: 'password',
+    db_args: 'tktpolicy=default'
+  )
 end
 ```
 
@@ -721,7 +725,7 @@ end
 ```ruby
 Kerberos::Kadm5.new(principal: 'admin/admin', password: 'admin_pass') do |kadm5|
   # Create a new user
-  kadm5.create_principal('jdoe@EXAMPLE.COM', 'temp_password')
+  kadm5.create_principal(name: 'jdoe@EXAMPLE.COM', password: 'temp_password')
 
   # Look up the user
   princ = kadm5.get_principal('jdoe@EXAMPLE.COM')
@@ -734,7 +738,7 @@ Kerberos::Kadm5.new(principal: 'admin/admin', password: 'admin_pass') do |kadm5|
   kadm5.set_pwexpire('jdoe@EXAMPLE.COM', (Time.now + 86400 * 90).to_i)
 
   # Generate random keys (e.g. for a service principal)
-  kadm5.create_principal('HTTP/webapp.example.com@EXAMPLE.COM', 'temp')
+  kadm5.create_principal(name: 'HTTP/webapp.example.com@EXAMPLE.COM', password: 'temp')
   kadm5.generate_random_key('HTTP/webapp.example.com@EXAMPLE.COM')
 
   # Clean up
@@ -837,7 +841,7 @@ Kerberos::Kadm5.new(principal: 'admin/admin', password: 'admin_pass') do |kadm5|
   policy = Kerberos::Kadm5::Policy.new(name: 'standard', min_length: 8, min_classes: 2)
   kadm5.create_policy(policy)
 
-  # Using a hash directly
+  # Using keywords directly
   kadm5.create_policy(name: 'simple', min_length: 6)
 end
 ```
@@ -962,7 +966,7 @@ The library raises specific exception classes depending on the component:
 ```ruby
 begin
   krb5 = Kerberos::Krb5.new
-  krb5.get_init_creds_password('user@EXAMPLE.COM', 'wrong_password')
+  krb5.get_init_creds_password(principal: 'user@EXAMPLE.COM', password: 'wrong_password')
 rescue Kerberos::Krb5::Exception => e
   puts "Krb5 error: #{e.message}"
 ensure

@@ -57,14 +57,14 @@ static VALUE rkadm5_allocate(VALUE klass){
 
 /*
  * call-seq:
- *   Kerberos::Kadm5.new(:principal => 'name', :password => 'xxxxx')
- *   Kerberos::Kadm5.new(:principal => 'name', :keytab => '/path/to/your/keytab')
- *   Kerberos::Kadm5.new(:principal => 'name', :keytab => true)
- *   Kerberos::Kadm5.new(:principal => 'name', :ccache => ccache_object)
+ *   Kerberos::Kadm5.new(principal: 'name', password: 'xxxxx')
+ *   Kerberos::Kadm5.new(principal: 'name', keytab: '/path/to/your/keytab')
+ *   Kerberos::Kadm5.new(principal: 'name', keytab: true)
+ *   Kerberos::Kadm5.new(principal: 'name', ccache: ccache_object)
  *
- * Creates and returns a new Kerberos::Kadm5 object. A hash argument is
- * accepted that allows you to specify a principal and a password, or
- * a keytab file, or a credentials cache.
+ * Creates and returns a new Kerberos::Kadm5 object. Keyword arguments allow
+ * you to specify a principal and a password, a keytab file, or a credentials
+ * cache.
  *
  * If you pass a string as the :keytab value it will attempt to use that file
  * for the keytab. If you pass true as the value it will attempt to use the
@@ -84,9 +84,15 @@ static VALUE rkadm5_allocate(VALUE klass){
  * Only one of :password, :keytab, or :ccache may be specified.
  *
  */
-static VALUE rkadm5_initialize(VALUE self, VALUE v_opts){
+static VALUE rkadm5_initialize(int argc, VALUE* argv, VALUE self){
   RUBY_KADM5* ptr;
-  VALUE v_principal, v_password, v_keytab, v_service, v_db_args, v_context, v_ccache;
+  VALUE v_opts, v_principal, v_password, v_keytab, v_service, v_db_args, v_context, v_ccache;
+  ID kw_table[7] = {
+    rb_intern("principal"), rb_intern("password"), rb_intern("keytab"),
+    rb_intern("ccache"), rb_intern("service"), rb_intern("db_args"),
+    rb_intern("context")
+  };
+  VALUE kw_vals[7];
   char* user;
   char* pass = NULL;
   char* keytab = NULL;
@@ -95,12 +101,19 @@ static VALUE rkadm5_initialize(VALUE self, VALUE v_opts){
   krb5_error_code kerror;
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
-  Check_Type(v_opts, T_HASH);
+  rb_scan_args(argc, argv, "0:", &v_opts);
 
-  v_principal = rb_hash_aref2(v_opts, ID2SYM(rb_intern("principal")));
-  v_password = rb_hash_aref2(v_opts, ID2SYM(rb_intern("password")));
-  v_keytab = rb_hash_aref2(v_opts, ID2SYM(rb_intern("keytab")));
-  v_ccache = rb_hash_aref2(v_opts, ID2SYM(rb_intern("ccache")));
+  if(NIL_P(v_opts))
+    v_opts = rb_hash_new();
+
+  rb_get_kwargs(v_opts, kw_table, 0, 7, kw_vals);
+  v_principal = kw_vals[0] == Qundef ? Qnil : kw_vals[0];
+  v_password = kw_vals[1] == Qundef ? Qnil : kw_vals[1];
+  v_keytab = kw_vals[2] == Qundef ? Qnil : kw_vals[2];
+  v_ccache = kw_vals[3] == Qundef ? Qnil : kw_vals[3];
+  v_service = kw_vals[4] == Qundef ? Qnil : kw_vals[4];
+  v_db_args = kw_vals[5] == Qundef ? Qnil : kw_vals[5];
+  v_context = kw_vals[6] == Qundef ? Qnil : kw_vals[6];
 
   // Validate mutual exclusivity
   {
@@ -141,8 +154,6 @@ static VALUE rkadm5_initialize(VALUE self, VALUE v_opts){
   }
 
   user = StringValueCStr(v_principal);
-  v_service = rb_hash_aref2(v_opts, ID2SYM(rb_intern("service")));
-
   if(NIL_P(v_service)){
     service = (char *) "kadmin/admin";
   }
@@ -151,13 +162,10 @@ static VALUE rkadm5_initialize(VALUE self, VALUE v_opts){
     service = StringValueCStr(v_service);
   }
 
-  v_db_args = rb_hash_aref2(v_opts, ID2SYM(rb_intern("db_args")));
   ptr->db_args = parse_db_args(v_db_args);
 
-  v_context = rb_hash_aref2(v_opts, ID2SYM(rb_intern("context")));
-
   // Initialize or borrow the context
-  if(RTEST(v_context)){
+  if(!NIL_P(v_context)){
     RUBY_KRB5_CONTEXT* ctx_ptr;
 
     if(!rb_obj_is_kind_of(v_context, cKrb5Context))
@@ -385,18 +393,21 @@ static VALUE rkadm5_create_principal(int argc, VALUE* argv, VALUE self){
   kadm5_principal_ent_rec princ;
   krb5_error_code kerror;
   VALUE v_opts, v_name, v_principal, v_pass, v_db_args;
+  ID kw_table[4] = { rb_intern("name"), rb_intern("principal"), rb_intern("password"), rb_intern("db_args") };
+  VALUE kw_vals[4];
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
 
   rb_scan_args(argc, argv, "0:", &v_opts);
 
   if(NIL_P(v_opts))
-    rb_raise(rb_eArgError, "name: (or principal:) and password: are required");
+    v_opts = rb_hash_new();
 
-  v_name      = rb_hash_aref2(v_opts, ID2SYM(rb_intern("name")));
-  v_principal = rb_hash_aref2(v_opts, ID2SYM(rb_intern("principal")));
-  v_pass      = rb_hash_aref2(v_opts, ID2SYM(rb_intern("password")));
-  v_db_args   = rb_hash_aref2(v_opts, ID2SYM(rb_intern("db_args")));
+  rb_get_kwargs(v_opts, kw_table, 0, 4, kw_vals);
+  v_name = kw_vals[0] == Qundef ? Qnil : kw_vals[0];
+  v_principal = kw_vals[1] == Qundef ? Qnil : kw_vals[1];
+  v_pass = kw_vals[2] == Qundef ? Qnil : kw_vals[2];
+  v_db_args = kw_vals[3] == Qundef ? Qnil : kw_vals[3];
 
   if(NIL_P(v_pass))
     rb_raise(rb_eArgError, "password: is required");
@@ -767,27 +778,38 @@ static VALUE rkadm5_get_principal(VALUE self, VALUE v_user){
  * Example:
  *
  *   # Using a Policy object
- *   policy = Kerberos::Kadm5::Policy.new(:name => 'test', :min_length => 5)
+ *   policy = Kerberos::Kadm5::Policy.new(name: 'test', min_length: 5)
  *   kadm5.create_policy(policy)
  *
- *   # Using a hash
- *   kadm5.create_policy(:name => 'test', :min_length => 5)
+ *   # Using keywords
+ *   kadm5.create_policy(name: 'test', min_length: 5)
  */
-static VALUE rkadm5_create_policy(VALUE self, VALUE v_policy){
+static VALUE rkadm5_create_policy(int argc, VALUE* argv, VALUE self){
   RUBY_KADM5* ptr;
   kadm5_ret_t kerror;
   kadm5_policy_ent_rec ent;
   long mask = KADM5_POLICY;
+  VALUE v_policy, v_kwargs;
   VALUE v_name, v_min_classes, v_min_life, v_max_life, v_min_length, v_history_num;
 
   TypedData_Get_Struct(self, RUBY_KADM5, &rkadm5_data_type, ptr);
 
-  // Allow a hash or a Policy object
-  if(rb_obj_is_kind_of(v_policy, rb_cHash)){
+  rb_scan_args(argc, argv, "01:", &v_policy, &v_kwargs);
+
+  if(!NIL_P(v_kwargs)){
     VALUE v_args[1];
-    v_args[0] = v_policy;
-    v_policy = rb_class_new_instance(1, v_args, cKadm5Policy);
+    if(!NIL_P(v_policy))
+      rb_raise(rb_eArgError, "provide a Policy object or keyword arguments, not both");
+
+    v_args[0] = v_kwargs;
+    v_policy = rb_class_new_instance_kw(1, v_args, cKadm5Policy, RB_PASS_KEYWORDS);
   }
+
+  if(NIL_P(v_policy))
+    rb_raise(rb_eArgError, "a Policy object or policy keywords are required");
+
+  if(!rb_obj_is_kind_of(v_policy, cKadm5Policy))
+    rb_raise(rb_eTypeError, "expected a Kerberos::Kadm5::Policy object or policy keywords");
 
   v_name        = rb_iv_get(v_policy, "@policy");
   v_min_classes = rb_iv_get(v_policy, "@min_classes");
@@ -896,16 +918,16 @@ static VALUE rkadm5_get_policy(VALUE self, VALUE v_name){
     VALUE v_arg[1];
     VALUE v_hash = rb_hash_new();
 
-    rb_hash_aset(v_hash, rb_str_new2("name"), rb_str_new2(ent.policy));
-    rb_hash_aset(v_hash, rb_str_new2("min_life"), LONG2FIX(ent.pw_min_life));
-    rb_hash_aset(v_hash, rb_str_new2("max_life"), LONG2FIX(ent.pw_max_life));
-    rb_hash_aset(v_hash, rb_str_new2("min_length"), LONG2FIX(ent.pw_min_length));
-    rb_hash_aset(v_hash, rb_str_new2("min_classes"), LONG2FIX(ent.pw_min_classes));
-    rb_hash_aset(v_hash, rb_str_new2("history_num"), LONG2FIX(ent.pw_history_num));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("name")), rb_str_new2(ent.policy));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("min_life")), LONG2FIX(ent.pw_min_life));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("max_life")), LONG2FIX(ent.pw_max_life));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("min_length")), LONG2FIX(ent.pw_min_length));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("min_classes")), LONG2FIX(ent.pw_min_classes));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("history_num")), LONG2FIX(ent.pw_history_num));
 
     v_arg[0] = v_hash;
 
-    v_policy = rb_class_new_instance(1, v_arg, cKadm5Policy);
+    v_policy = rb_class_new_instance_kw(1, v_arg, cKadm5Policy, RB_PASS_KEYWORDS);
 
     kadm5_free_policy_ent(ptr->handle, &ent);
   }
@@ -953,16 +975,16 @@ static VALUE rkadm5_find_policy(VALUE self, VALUE v_name){
     VALUE v_arg[1];
     VALUE v_hash = rb_hash_new();
 
-    rb_hash_aset(v_hash, rb_str_new2("name"), rb_str_new2(ent.policy));
-    rb_hash_aset(v_hash, rb_str_new2("min_life"), LONG2FIX(ent.pw_min_life));
-    rb_hash_aset(v_hash, rb_str_new2("max_life"), LONG2FIX(ent.pw_max_life));
-    rb_hash_aset(v_hash, rb_str_new2("min_length"), LONG2FIX(ent.pw_min_length));
-    rb_hash_aset(v_hash, rb_str_new2("min_classes"), LONG2FIX(ent.pw_min_classes));
-    rb_hash_aset(v_hash, rb_str_new2("history_num"), LONG2FIX(ent.pw_history_num));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("name")), rb_str_new2(ent.policy));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("min_life")), LONG2FIX(ent.pw_min_life));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("max_life")), LONG2FIX(ent.pw_max_life));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("min_length")), LONG2FIX(ent.pw_min_length));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("min_classes")), LONG2FIX(ent.pw_min_classes));
+    rb_hash_aset(v_hash, ID2SYM(rb_intern("history_num")), LONG2FIX(ent.pw_history_num));
 
     v_arg[0] = v_hash;
 
-    v_policy = rb_class_new_instance(1, v_arg, cKadm5Policy);
+    v_policy = rb_class_new_instance_kw(1, v_arg, cKadm5Policy, RB_PASS_KEYWORDS);
 
     kadm5_free_policy_ent(ptr->handle, &ent);
   }
@@ -1308,12 +1330,12 @@ void Init_kadm5(void){
 
   // Initialization Method
 
-  rb_define_method(cKadm5, "initialize", rkadm5_initialize, 1);
+  rb_define_method(cKadm5, "initialize", rkadm5_initialize, -1);
 
   // Instance Methods
 
   rb_define_method(cKadm5, "close", rkadm5_close, 0);
-  rb_define_method(cKadm5, "create_policy", rkadm5_create_policy, 1);
+  rb_define_method(cKadm5, "create_policy", rkadm5_create_policy, -1);
   rb_define_method(cKadm5, "create_principal", rkadm5_create_principal, -1);
   rb_define_method(cKadm5, "delete_policy", rkadm5_delete_policy, 1);
   rb_define_method(cKadm5, "delete_principal", rkadm5_delete_principal, 1);

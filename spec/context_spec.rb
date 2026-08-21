@@ -51,6 +51,11 @@ RSpec.describe Kerberos::Krb5::Context do
       expect(ctx).to be_a(described_class)
       expect { ctx.close }.not_to raise_error
     end
+
+    it 'rejects positional option hashes and unknown keywords' do
+      expect { described_class.new({secure: true}) }.to raise_error(ArgumentError)
+      expect { described_class.new(unknown: true) }.to raise_error(ArgumentError, /unknown keyword/)
+    end
   end
 
   describe '#default_realm' do

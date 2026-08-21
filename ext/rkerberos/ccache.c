@@ -67,6 +67,8 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
   RUBY_KRB5_CCACHE* ptr;
   krb5_error_code kerror;
   VALUE v_opts, v_principal, v_name, v_context;
+  ID kw_table[3] = { rb_intern("principal"), rb_intern("cache_name"), rb_intern("context") };
+  VALUE kw_vals[3];
 
   TypedData_Get_Struct(self, RUBY_KRB5_CCACHE, &rkrb5_ccache_data_type, ptr);
 
@@ -75,11 +77,12 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
   if(NIL_P(v_opts))
     v_opts = rb_hash_new();
 
-  v_principal = rb_hash_aref2(v_opts, ID2SYM(rb_intern("principal")));
-  v_name = rb_hash_aref2(v_opts, ID2SYM(rb_intern("cache_name")));
-  v_context = rb_hash_aref2(v_opts, ID2SYM(rb_intern("context")));
+  rb_get_kwargs(v_opts, kw_table, 0, 3, kw_vals);
+  v_principal = kw_vals[0] == Qundef ? Qnil : kw_vals[0];
+  v_name = kw_vals[1] == Qundef ? Qnil : kw_vals[1];
+  v_context = kw_vals[2] == Qundef ? Qnil : kw_vals[2];
 
-  if(RTEST(v_principal)){
+  if(!NIL_P(v_principal)){
     if(rb_respond_to(v_principal, rb_intern("principal")))
       v_principal = rb_funcall(v_principal, rb_intern("principal"), 0);
 
@@ -87,7 +90,7 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
   }
 
   // Initialize or borrow the context
-  if(RTEST(v_context)){
+  if(!NIL_P(v_context)){
     RUBY_KRB5_CONTEXT* ctx_ptr;
 
     if(!rb_obj_is_kind_of(v_context, cKrb5Context))
@@ -111,7 +114,7 @@ static VALUE rkrb5_ccache_initialize(int argc, VALUE* argv, VALUE self){
   }
 
   // Convert the principal name to a principal object
-  if(RTEST(v_principal)){
+  if(!NIL_P(v_principal)){
     kerror = krb5_parse_name(
       ptr->ctx,
       StringValueCStr(v_principal),
