@@ -66,6 +66,10 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
       expect { subject.new(principal: user, keytab: 1) }.to raise_error(TypeError)
     end
 
+    it 'requires a principal when using a keytab' do
+      expect { subject.new(keytab: true) }.to raise_error(ArgumentError, /principal must be specified/)
+    end
+
     it 'requires service to be a string' do
       expect { subject.new(principal: user, password: pass, service: 1) }.to raise_error(TypeError)
     end
@@ -152,6 +156,27 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
     end
   end
 
+  describe '#close' do
+    it 'makes all administrative operations fail safely' do
+      kadm5 = subject.new(principal: user, password: pass)
+      kadm5.close
+      policy = Kerberos::Kadm5::Policy.new(name: 'closed_policy')
+
+      operations = [
+        -> { kadm5.get_privileges },
+        -> { kadm5.get_principals },
+        -> { kadm5.get_policies },
+        -> { kadm5.create_policy(policy) },
+        -> { kadm5.modify_policy(policy) },
+        -> { kadm5.delete_policy('closed_policy') }
+      ]
+
+      operations.each do |operation|
+        expect(&operation).to raise_error(Kerberos::Kadm5::Exception, /no administrative context/)
+      end
+    end
+  end
+
   describe '#get_privileges' do
     before(:each) do
       @kadm5 = subject.new(principal: user, password: pass)
@@ -222,6 +247,19 @@ RSpec.describe 'Kerberos::Kadm5', :kadm5 do
       expect {
         @kadm5.create_policy(name: @policy_name, unknown: true)
       }.to raise_error(ArgumentError, /unknown keyword/)
+    end
+
+    it 'modifies values assigned through Policy writers' do
+      @kadm5.create_policy(name: @policy_name, min_length: 8, history_num: 1)
+      policy = @kadm5.get_policy(@policy_name)
+      policy.min_length = 12
+      policy.history_num = 3
+
+      expect(@kadm5.modify_policy(policy)).to equal(@kadm5)
+
+      modified = @kadm5.get_policy(@policy_name)
+      expect(modified.min_length).to eq(12)
+      expect(modified.history_num).to eq(3)
     end
   end
 

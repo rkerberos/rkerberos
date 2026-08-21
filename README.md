@@ -18,7 +18,12 @@ puts krb.get_permitted_enctypes.keys.join(',')
 
 # Credentials cache
 cc = Kerberos::Krb5::CredentialsCache.new
-krb.verify_init_creds(ccache: cc)
+krb.get_init_creds_password(
+  principal: ENV['KRB5_PRINCIPAL'],
+  password: ENV['KRB5_PASSWORD'],
+  ccache: cc
+)
+krb.verify_init_creds
 puts cc.primary_principal
 
 # Keytab
@@ -160,7 +165,6 @@ The test environment includes:
 # TODO
 * Create a separate class for the replay cache.
 * Better credentials cache support.
-* Ability to add and delete keytab entries.
 
 # Authors
 * Daniel Berger

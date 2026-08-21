@@ -114,6 +114,9 @@ static VALUE rkrb5_keytab_each(VALUE self){
 
   TypedData_Get_Struct(self, RUBY_KRB5_KEYTAB, &rkrb5_keytab_data_type, ptr);
 
+  if(!ptr->ctx || !ptr->keytab)
+    rb_raise(cKrb5Exception, "keytab is closed");
+
   ea.ctx = ptr->ctx;
   ea.keytab = ptr->keytab;
 
@@ -143,6 +146,9 @@ static VALUE rkrb5_keytab_default_name(VALUE self){
   VALUE v_default_name;
 
   TypedData_Get_Struct(self, RUBY_KRB5_KEYTAB, &rkrb5_keytab_data_type, ptr);
+
+  if(!ptr->ctx)
+    rb_raise(cKrb5Exception, "no context has been established");
 
   kerror = krb5_kt_default_name(ptr->ctx, default_name, MAX_KEYTAB_NAME_LEN);
 
@@ -233,13 +239,14 @@ static VALUE rkrb5_keytab_add_entry(int argc, VALUE* argv, VALUE self){
 
   memset(&entry, 0, sizeof(entry));
 
+  entry.vno = NIL_P(v_vno) ? 1 : NUM2INT(v_vno);
+  entry.key.enctype = NIL_P(v_enctype) ? ENCTYPE_AES256_CTS_HMAC_SHA1_96 : NUM2INT(v_enctype);
+
   kerror = krb5_parse_name(ptr->ctx, StringValueCStr(v_principal), &entry.principal);
 
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_parse_name: %s", error_message(kerror));
 
-  entry.vno = NIL_P(v_vno) ? 1 : NUM2INT(v_vno);
-  entry.key.enctype = NIL_P(v_enctype) ? ENCTYPE_AES256_CTS_HMAC_SHA1_96 : NUM2INT(v_enctype);
   entry.timestamp = time(NULL);
 
   // Derive the salt from the principal
@@ -323,13 +330,13 @@ static VALUE rkrb5_keytab_remove_entry(int argc, VALUE* argv, VALUE self){
 
   Check_Type(v_principal, T_STRING);
 
+  match_vno = NIL_P(v_vno) ? 0 : NUM2INT(v_vno);
+  match_enctype = NIL_P(v_enctype) ? 0 : NUM2INT(v_enctype);
+
   kerror = krb5_parse_name(ptr->ctx, StringValueCStr(v_principal), &match_princ);
 
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_parse_name: %s", error_message(kerror));
-
-  match_vno = NIL_P(v_vno) ? 0 : NUM2INT(v_vno);
-  match_enctype = NIL_P(v_enctype) ? 0 : NUM2INT(v_enctype);
 
   // Retrieve the full entry via krb5_kt_get_entry and then pass the
   // complete struct to krb5_kt_remove_entry so all fields match exactly.
@@ -383,25 +390,21 @@ static VALUE rkrb5_keytab_get_entry(int argc, VALUE* argv, VALUE self){
 
   TypedData_Get_Struct(self, RUBY_KRB5_KEYTAB, &rkrb5_keytab_data_type, ptr);
 
+  if(!ptr->ctx || !ptr->keytab)
+    rb_raise(cKrb5Exception, "keytab is closed");
+
   rb_scan_args(argc, argv, "12", &v_principal, &v_vno, &v_enctype);
 
   Check_Type(v_principal, T_STRING);
   name = StringValueCStr(v_principal);
 
+  vno = NIL_P(v_vno) ? 0 : NUM2INT(v_vno);
+  enctype = NIL_P(v_enctype) ? 0 : NUM2INT(v_enctype);
+
   kerror = krb5_parse_name(ptr->ctx, name, &principal);
 
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_parse_name: %s", error_message(kerror));
-
-  if(NIL_P(v_vno))
-    vno = 0;
-  else
-    vno = NUM2INT(v_vno);
-
-  if(NIL_P(v_enctype))
-    enctype = 0;
-  else
-    enctype = NUM2INT(v_enctype);
 
   kerror = krb5_kt_get_entry(
     ptr->ctx,

@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   kerberos-kdc:
     build:
@@ -9,7 +8,7 @@ services:
       - "1088:88"
       - "1749:749"
     volumes:
-      - krb5-keytab:/etc/krb5.keytab
+      - krb5-keytab:/shared-keytab
     depends_on:
       - ldap
 
@@ -21,11 +20,14 @@ services:
       - KRB5_CONFIG=/etc/krb5.conf
       - KRB5_ADMIN_PRINCIPAL=admin/admin@EXAMPLE.COM
       - KRB5_ADMIN_PASSWORD=adminpassword
+      - KRB5_KTNAME=FILE:/shared-keytab/krb5.keytab
       # LDAP test variables for integration tests
       - KRB5_LDAP_PRINCIPAL=admin@ldap
       - KRB5_LDAP_PASSWORD=admin
       - KRB5_LDAP_DRIVER=ou=People,dc=example,dc=com:foobar:uid
     working_dir: /app
+    volumes:
+      - krb5-keytab:/shared-keytab:ro
     depends_on:
       - kerberos-kdc
 

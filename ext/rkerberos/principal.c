@@ -153,13 +153,16 @@ static VALUE rkrb5_princ_initialize(int argc, VALUE* argv, VALUE self){
  */
 static VALUE rkrb5_princ_get_realm(VALUE self){
   RUBY_KRB5_PRINC* ptr;
+  krb5_data* realm;
 
   TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &rkrb5_princ_data_type, ptr);
 
   if(!ptr->principal)
     rb_raise(cKrb5Exception, "no principal has been established");
 
-  return rb_str_new2(krb5_princ_realm(ptr->ctx, ptr->principal)->data);
+  realm = krb5_princ_realm(ptr->ctx, ptr->principal);
+
+  return rb_str_new(realm->data, realm->length);
 }
 
 /*
@@ -195,6 +198,10 @@ static VALUE rkrb5_princ_equal(VALUE self, VALUE v_other){
   VALUE v_bool = Qfalse;
 
   TypedData_Get_Struct(self, RUBY_KRB5_PRINC, &rkrb5_princ_data_type, ptr1);
+
+  if(!rb_obj_is_kind_of(v_other, cKrb5Principal))
+    return Qfalse;
+
   TypedData_Get_Struct(v_other, RUBY_KRB5_PRINC, &rkrb5_princ_data_type, ptr2);
 
   if(!ptr1->principal || !ptr2->principal)

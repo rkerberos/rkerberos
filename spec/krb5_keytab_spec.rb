@@ -123,6 +123,15 @@ RSpec.describe Kerberos::Krb5::Keytab, :kadm5 do
       kt = nil
       GC.start
     end
+
+    it 'raises from every operation that requires the closed handle' do
+      kt = described_class.new(name: @keytab_name)
+      kt.close
+
+      expect { kt.default_name }.to raise_error(Kerberos::Krb5::Exception)
+      expect { kt.each { |_| } }.to raise_error(Kerberos::Krb5::Exception)
+      expect { kt.get_entry("testuser1@#{@realm}") }.to raise_error(Kerberos::Krb5::Exception)
+    end
   end
 
   describe '.foreach' do

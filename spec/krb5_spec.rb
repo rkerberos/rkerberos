@@ -73,6 +73,17 @@ RSpec.describe Kerberos::Krb5 do
     it 'default_realm is an alias for get_default_realm' do
       expect(krb5.method(:default_realm)).to eq(krb5.method(:get_default_realm))
     end
+    it 'raises after the object is closed' do
+      krb5.close
+      expect { krb5.get_default_realm }.to raise_error(Kerberos::Krb5::Exception)
+    end
+  end
+
+  describe '#set_default_realm' do
+    it 'raises after the object is closed' do
+      krb5.close
+      expect { krb5.set_default_realm(@realm) }.to raise_error(Kerberos::Krb5::Exception)
+    end
   end
 
   describe '#verify_init_creds', :kadm5 do
@@ -131,12 +142,36 @@ RSpec.describe Kerberos::Krb5 do
       expect(krb5.verify_init_creds(keytab: kt)).to be true
     end
 
+    it 'rejects a closed Keytab object' do
+      krb5.get_init_creds_password(principal: user, password: 'changeme')
+      kt = Kerberos::Krb5::Keytab.new
+      kt.close
+      expect { krb5.verify_init_creds(keytab: kt) }
+        .to raise_error(Kerberos::Krb5::Exception, /keytab is closed/)
+    end
+
     it 'stores additional credentials in provided CredentialsCache' do
       ccache = Kerberos::Krb5::CredentialsCache.new
       krb5.get_init_creds_password(principal: user, password: 'changeme')
       expect(krb5.verify_init_creds(ccache: ccache)).to be true
       expect(ccache.primary_principal).to be_a(String)
       expect(ccache.primary_principal).to include('@')
+    end
+
+    it 'rejects a closed CredentialsCache' do
+      krb5.get_init_creds_password(principal: user, password: 'changeme')
+      ccache = Kerberos::Krb5::CredentialsCache.new
+      ccache.close
+      expect { krb5.verify_init_creds(ccache: ccache) }
+        .to raise_error(Kerberos::Krb5::Exception, /credentials cache is closed/)
+    end
+
+    it 'does not acquire credentials into a closed CredentialsCache' do
+      ccache = Kerberos::Krb5::CredentialsCache.new
+      ccache.close
+      expect {
+        krb5.get_init_creds_password(principal: user, password: 'changeme', ccache: ccache)
+      }.to raise_error(Kerberos::Krb5::Exception, /credentials cache is closed/)
     end
 
     it 'provides authenticate! which acquires and verifies (Zanarotti mitigation)' do
@@ -147,9 +182,19 @@ RSpec.describe Kerberos::Krb5 do
 
     it 'accepts an optional service argument' do
       expect {
-        krb5.authenticate!(principal: user, password: 'changeme', service: 'kadmin/changepw')
+        krb5.authenticate!(principal: user, password: 'changeme', service: 'verify/rkerberos-test')
       }.not_to raise_error
-      expect(krb5.verify_init_creds).to be true
+    end
+
+    it 'fails closed when no verification keytab is available' do
+      original_keytab = ENV['KRB5_KTNAME']
+      ENV['KRB5_KTNAME'] = "FILE:/tmp/missing_verify_keytab_#{Process.pid}"
+
+      expect {
+        described_class.new.authenticate!(principal: user, password: 'changeme')
+      }.to raise_error(Kerberos::Krb5::Exception, /krb5_verify_init_creds/)
+    ensure
+      ENV['KRB5_KTNAME'] = original_keytab
     end
 
     it 'validates argument types for authenticate!' do
@@ -271,6 +316,15 @@ RSpec.describe Kerberos::Krb5 do
       expect { krb5.get_init_creds_keytab(principal: user, keytab: kt_name, ccache: ccache) }.not_to raise_error
       expect(ccache.primary_principal).to be_a(String)
       expect(ccache.primary_principal).to include('@')
+    end
+
+    it 'rejects a closed CredentialsCache' do
+      ccache = Kerberos::Krb5::CredentialsCache.new
+      ccache.close
+      kt_name = "FILE:#{@kt_file}"
+      expect {
+        krb5.get_init_creds_keytab(principal: user, keytab: kt_name, ccache: ccache)
+      }.to raise_error(Kerberos::Krb5::Exception, /credentials cache is closed/)
     end
   end
 

@@ -139,6 +139,9 @@ static VALUE rkrb5_get_default_realm(VALUE self){
 
   TypedData_Get_Struct(self, RUBY_KRB5, &rkrb5_data_type, ptr);
 
+  if(!ptr->ctx)
+    rb_raise(cKrb5Exception, "no context has been established");
+
   kerror = krb5_get_default_realm(ptr->ctx, &realm);
 
   if(kerror)
@@ -164,6 +167,9 @@ static VALUE rkrb5_set_default_realm(int argc, VALUE* argv, VALUE self){
   krb5_error_code kerror;
 
   TypedData_Get_Struct(self, RUBY_KRB5, &rkrb5_data_type, ptr);
+
+  if(!ptr->ctx)
+    rb_raise(cKrb5Exception, "no context has been established");
 
   rb_scan_args(argc, argv, "01", &v_realm);
 
@@ -317,6 +323,11 @@ static VALUE rkrb5_get_init_creds_keytab(int argc, VALUE* argv, VALUE self){
     RUBY_KRB5_CCACHE* ccptr;
     TypedData_Get_Struct(v_ccache, RUBY_KRB5_CCACHE, &rkrb5_ccache_data_type, ccptr);
 
+    if(!ccptr->ctx || !ccptr->ccache){
+      krb5_get_init_creds_opt_free(ptr->ctx, opt);
+      rb_raise(cKrb5Exception, "credentials cache is closed or destroyed");
+    }
+
     kerror = krb5_get_init_creds_opt_set_out_ccache(ptr->ctx, opt, ccptr->ccache);
     if(kerror) {
       krb5_get_init_creds_opt_free(ptr->ctx, opt);
@@ -383,6 +394,9 @@ static VALUE rkrb5_change_password(VALUE self, VALUE v_old, VALUE v_new){
 
   if(!ptr->princ)
     rb_raise(cKrb5Exception, "no principal has been established");
+
+  memset(&result_string, 0, sizeof(result_string));
+  memset(&pw_result_string, 0, sizeof(pw_result_string));
 
   krb5_free_cred_contents(ptr->ctx, &ptr->creds);
   memset(&ptr->creds, 0, sizeof(ptr->creds));
@@ -505,6 +519,9 @@ static VALUE rkrb5_get_init_creds_passwd(int argc, VALUE* argv, VALUE self){
     RUBY_KRB5_CCACHE* ccptr;
     TypedData_Get_Struct(v_ccache, RUBY_KRB5_CCACHE, &rkrb5_ccache_data_type, ccptr);
 
+    if(!ccptr->ctx || !ccptr->ccache)
+      rb_raise(cKrb5Exception, "credentials cache is closed or destroyed");
+
     kerror = krb5_get_init_creds_opt_alloc(ptr->ctx, &opt);
     if(kerror)
       rb_raise(cKrb5Exception, "krb5_get_init_creds_opt_alloc: %s", error_message(kerror));
@@ -618,14 +635,7 @@ static VALUE rkrb5_authenticate_bang(int argc, VALUE* argv, VALUE self){
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_get_init_creds_password: %s", error_message(kerror));
 
-  /*
-   * Try strict verification first (AP-REQ nofail). If strict verification
-   * cannot be performed (e.g. missing keytab or other environment issue),
-   * fall back to the standard verification so authenticate! remains useful
-   * in minimal test environments.
-   */
   krb5_verify_init_creds_opt vicopt;
-  krb5_error_code kerror_strict = 0;
 
   krb5_verify_init_creds_opt_init(&vicopt);
   krb5_verify_init_creds_opt_set_ap_req_nofail(&vicopt, TRUE);
@@ -638,19 +648,12 @@ static VALUE rkrb5_authenticate_bang(int argc, VALUE* argv, VALUE self){
       rb_raise(cKrb5Exception, "krb5_parse_name(service): %s", error_message(kerror));
   }
 
-  // First, attempt strict verification
   kerror = krb5_verify_init_creds(ptr->ctx, &ptr->creds, server_princ, NULL, NULL, &vicopt);
 
   if(kerror){
-    /* strict verification failed — try a best-effort standard verify */
-    kerror_strict = kerror;
-    kerror = krb5_verify_init_creds(ptr->ctx, &ptr->creds, server_princ, NULL, NULL, NULL);
-    if(kerror){
-      if(server_princ)
-        krb5_free_principal(ptr->ctx, server_princ);
-      /* raise the original strict-verification error to inform caller */
-      rb_raise(cKrb5Exception, "krb5_verify_init_creds: %s", error_message(kerror_strict));
-    }
+    if(server_princ)
+      krb5_free_principal(ptr->ctx, server_princ);
+    rb_raise(cKrb5Exception, "krb5_verify_init_creds: %s", error_message(kerror));
   }
 
   if(server_princ)
@@ -848,18 +851,42 @@ static VALUE rkrb5_verify_init_creds(int argc, VALUE* argv, VALUE self){
   if(!NIL_P(v_keytab)){
     // Will raise TypeError if object isn't the expected Keytab typed data
     TypedData_Get_Struct(v_keytab, RUBY_KRB5_KEYTAB, &rkrb5_keytab_data_type, ktptr);
+
+    if(!ktptr->ctx || !ktptr->keytab)
+      rb_raise(cKrb5Exception, "keytab is closed");
+
     keytab = ktptr->keytab;
   }
 
   if(!NIL_P(v_ccache)){
     // Will raise TypeError if object isn't the expected CCache typed data
     TypedData_Get_Struct(v_ccache, RUBY_KRB5_CCACHE, &rkrb5_ccache_data_type, ccptr);
+
+    if(!ccptr->ctx || !ccptr->ccache)
+      rb_raise(cKrb5Exception, "credentials cache is closed or destroyed");
+
     ccache_ptr = &ccptr->ccache;
   }
 
   // Ensure we have credentials to verify (check after validating args)
   if(ptr->creds.client == NULL)
     rb_raise(cKrb5Exception, "no credentials have been acquired");
+
+  /* A resolved FILE cache may not exist on disk yet. Create it before
+     krb5_verify_init_creds attempts to store any credentials it fetches. */
+  if(ccache_ptr && *ccache_ptr){
+    krb5_principal cache_princ = NULL;
+
+    kerror = krb5_cc_get_principal(ptr->ctx, *ccache_ptr, &cache_princ);
+
+    if(kerror == KRB5_CC_NOTFOUND || kerror == KRB5_FCC_NOFILE)
+      kerror = krb5_cc_initialize(ptr->ctx, *ccache_ptr, ptr->creds.client);
+    else if(!kerror)
+      krb5_free_principal(ptr->ctx, cache_princ);
+
+    if(kerror)
+      rb_raise(cKrb5Exception, "credentials cache setup: %s", error_message(kerror));
+  }
 
   // Optional server principal (parse after context & arg validation)
   if(!NIL_P(v_server)){
@@ -876,15 +903,10 @@ static VALUE rkrb5_verify_init_creds(int argc, VALUE* argv, VALUE self){
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_verify_init_creds: %s", error_message(kerror));
 
-  /* If the caller supplied a CredentialsCache object, store the verified
-     credentials there so Ruby-level callers can inspect the cache. */
+  /* Include the initial credential in addition to any credentials fetched
+     and stored by krb5_verify_init_creds. */
   if(ccache_ptr && *ccache_ptr){
     krb5_error_code k2;
-
-    k2 = krb5_cc_initialize(ptr->ctx, *ccache_ptr, ptr->creds.client);
-
-    if(k2)
-      rb_raise(cKrb5Exception, "krb5_cc_initialize: %s", error_message(k2));
 
     k2 = krb5_cc_store_cred(ptr->ctx, *ccache_ptr, &ptr->creds);
 

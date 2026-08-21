@@ -63,6 +63,17 @@ RSpec.describe Kerberos::Krb5::Principal do
     end
   end
 
+  describe '#==' do
+    it 'returns true for equivalent principals' do
+      expect(princ).to eq(described_class.new(name: name))
+    end
+
+    it 'returns false for objects of another type' do
+      expect(princ == name).to be false
+      expect(princ == nil).to be false
+    end
+  end
+
   describe '#name' do
     it 'responds to name' do
       expect(princ).to respond_to(:name)
