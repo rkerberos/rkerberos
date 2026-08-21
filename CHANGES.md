@@ -11,7 +11,7 @@
   credential cache full names, Kerberos thread-safety detection, hostname
   expansion, host realm lookup, and convenience aliases.
 * Added comprehensive usage examples and expanded specs for the new APIs.
-* Updated gem metadata and excluded generated artifacts from release packages.
+* Excluded generated artifacts from release packages.
 
 # 0.2.3 - 8-Mar-2026
 * All Kadm5 related classes are skipped if not found.
