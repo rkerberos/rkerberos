@@ -28,7 +28,9 @@ Gem::Specification.new do |spec|
     'bug_tracker_uri'       => 'https://github.com/rkerberos/rkerberos/issues',
     'changelog_uri'         => 'https://github.com/rkerberos/rkerberos/blob/master/CHANGES.md',
     'documentation_uri'     => 'https://github.com/rkerberos/rkerberos/wiki',
+    'homepage_uri'          => 'https://github.com/rkerberos/rkerberos',
     'source_code_uri'       => 'https://github.com/rkerberos/rkerberos',
+    'wiki_uri'              => 'https://github.com/rkerberos/rkerberos/wiki',
     'github_repo'           => 'https://github.com/rkerberos/rkerberos',
     'funding_uri'           => 'https://github.com/sponsors/rkerberos',
     'rubygems_mfa_required' => 'true'
