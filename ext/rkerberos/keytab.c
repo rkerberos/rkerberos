@@ -56,7 +56,7 @@ typedef struct {
 static VALUE rkrb5_keytab_each_body(VALUE arg){
   keytab_each_arg* ea = (keytab_each_arg*)arg;
   krb5_keytab_entry entry;
-  krb5_error_code kerror;
+  krb5_error_code kerror, iteration_error;
   char* principal;
   VALUE v_kt_entry;
 
@@ -81,9 +81,13 @@ static VALUE rkrb5_keytab_each_body(VALUE arg){
     rb_yield(v_kt_entry);
   }
 
-  ea->cursor_active = 0;
+  iteration_error = kerror;
 
   kerror = krb5_kt_end_seq_get(ea->ctx, ea->keytab, &ea->cursor);
+  ea->cursor_active = 0;
+
+  if(iteration_error != KRB5_KT_END)
+    rb_raise(cKrb5Exception, "krb5_kt_next_entry: %s", error_message(iteration_error));
 
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_kt_end_seq_get: %s", error_message(kerror));
@@ -626,7 +630,7 @@ typedef struct {
 static VALUE rkrb5_s_keytab_foreach_body(VALUE arg){
   keytab_foreach_arg* fa = (keytab_foreach_arg*)arg;
   krb5_keytab_entry entry;
-  krb5_error_code kerror;
+  krb5_error_code kerror, iteration_error;
   char* principal;
   VALUE v_kt_entry;
 
@@ -651,9 +655,13 @@ static VALUE rkrb5_s_keytab_foreach_body(VALUE arg){
     rb_yield(v_kt_entry);
   }
 
-  fa->cursor_active = 0;
+  iteration_error = kerror;
 
   kerror = krb5_kt_end_seq_get(fa->ctx, fa->keytab, &fa->cursor);
+  fa->cursor_active = 0;
+
+  if(iteration_error != KRB5_KT_END)
+    rb_raise(cKrb5Exception, "krb5_kt_next_entry: %s", error_message(iteration_error));
 
   if(kerror)
     rb_raise(cKrb5Exception, "krb5_kt_end_seq_get: %s", error_message(kerror));
