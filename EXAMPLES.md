@@ -183,7 +183,7 @@ krb5.close
 ### Version
 
 ```ruby
-puts Kerberos::Krb5::VERSION  # => "0.3.0"
+puts Kerberos::Krb5::VERSION  # => "0.3.1"
 ```
 
 ---

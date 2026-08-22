@@ -1025,8 +1025,8 @@ void Init_rkerberos(void){
   rb_define_alias(cKrb5, "init_creds_keytab", "get_init_creds_keytab");
   rb_define_alias(cKrb5, "permitted_enctypes", "get_permitted_enctypes");
 
-  /* 0.3.0: The version of the custom rkerberos library */
-  rb_define_const(cKrb5, "VERSION", rb_str_new2("0.3.0"));
+  /* 0.3.1: The version of the custom rkerberos library */
+  rb_define_const(cKrb5, "VERSION", rb_str_new2("0.3.1"));
 
   // Encoding type constants
 

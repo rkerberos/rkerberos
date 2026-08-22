@@ -2,7 +2,7 @@ require 'rubygems'
 
 Gem::Specification.new do |spec|
   spec.name       = 'rkerberos'
-  spec.version    = '0.3.0'
+  spec.version    = '0.3.1'
   spec.authors    = ['Daniel Berger', 'Dominic Cleal', 'Simon Levermann']
   spec.license    = 'Artistic-2.0'
   spec.email      = ['djberg96@gmail.com', 'dominic@cleal.org', 'simon-rubygems@slevermann.de']

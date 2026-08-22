@@ -1,3 +1,18 @@
+# 0.3.1 - 21-Aug-2026
+* Hardened initial credential verification so it fails closed when verification
+  cannot be performed, rejects closed keytabs and credential caches, and safely
+  initializes a supplied cache before storing credentials.
+* Added shared context lifetime tracking. `Context#close` now raises while
+  dependent wrappers remain open; `close(force: true)` logically closes the
+  context and defers native cleanup until its dependents close.
+* Hardened native handle cleanup and closed-object checks across `Krb5`, `Kadm5`,
+  `CredentialsCache`, `Keytab`, and `Principal`.
+* Fixed `Kadm5#modify_policy` to apply values assigned through `Policy` writers,
+  including password history, and require an explicit principal for keytab
+  authentication.
+* Fixed `Keytab#each` and `Keytab.foreach` to raise iteration errors instead of
+  silently returning partial results.
+
 # 0.3.0 - 20-Aug-2026
 * Added optional shared `Context` support to the `Krb5`, `Kadm5`, `Config`,
   `CredentialsCache`, `Keytab`, and `Principal` constructors.
